@@ -1,0 +1,3 @@
+[submodule "dash_examples"]
+	path = dash_examples
+	url = git@github.com:olmozavala/dash_examples.git
