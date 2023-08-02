@@ -2,6 +2,7 @@ import xarray as xr
 from os.path import join
 from model.dashboardstate import TreeNode
 import dash_bootstrap_components as dbc
+from dash import Patch
 
 from proj_layout.utils import get_buttons_config, get_def_slider, get_update_buttons, select_colormap
 
@@ -75,12 +76,12 @@ class Dashboard:
             new_col.append(self.add_field(col_width, new_node))
 
         if len(prev_layout) == 0:  # Return a new column
-            return [dbc.Row(new_col)]
+            return new_col
         else:
-            prev_layout[0]["props"]["children"] = prev_layout[0]["props"][
-                "children"
-            ] + new_col
-            return prev_layout
+            patch = Patch()
+            for c_col in new_col:
+                patch.append(c_col)
+            return patch
 
     def create_deeper_level_figure(self, prev_layout, parent_id, plot_type, anim_coord=None):
 

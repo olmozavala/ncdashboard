@@ -3,7 +3,7 @@ from textwrap import dedent as d
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import dcc, html, ctx, Input, Output, State, ALL, callback
+from dash import dcc, html, ctx, Input, Output, State, ALL, callback, Patch
 from dash.exceptions import PreventUpdate
 import numpy as np
 
@@ -61,10 +61,7 @@ app.layout = dbc.Container(
                     ], width={"size": 4, "offset": 2}),
             ]
         ),
-        dbc.Row(dbc.Col(
-            [
-
-            ], width=12, id="display_area")),
+        dbc.Row([], id="display_area"),
     ],
     fluid=True,
     id="container",
@@ -83,6 +80,7 @@ app.layout = dbc.Container(
 )
 def display_relayout_data(prev_children, selected_1d, selected_2d, selected_3d, selected_4d, 
                           n_clicks_plot_separated, n_clicks_plot_together, n_clicks_requestanimation):
+
     triggered_id = ctx.triggered_id
     print(f'Type: {type(triggered_id)}, Value: {triggered_id}')
 
