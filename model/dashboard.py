@@ -2,7 +2,8 @@ import xarray as xr
 from os.path import join
 from model.dashboardstate import TreeNode
 import dash_bootstrap_components as dbc
-from dash import Patch
+from dash import Patch, html, dcc
+from model.model_utils import PlotType
 
 from proj_layout.utils import get_buttons_config, get_def_slider, get_update_buttons, select_colormap
 
@@ -41,31 +42,73 @@ class Dashboard:
         plot_type = node.get_plot_type()
         
         coords = node.get_animation_coords()
-        # In this case we need to create buttons: time and xaxis
-        anim_buttons = dbc.ButtonGroup(
-                        [ dbc.Button(f'Animate {anim_coord}', 
-                                     id={"type": "animation", 
-                                         "index": f'{node.id}:{anim_coord}'}) 
-                                         for anim_coord in coords],
-                        size="sm",
-                    )
+        # If we have animation coords and we are not plotting an animation we make the buttons
+        anim_options = []
+        if len(coords) > 0 and not plot_type.is_animation():
+            anim_options = [
+                dbc.Row( 
+                    [
+                        dbc.Col( html.Div("Resolution:"), width=3),
+                        dbc.Col( dbc.RadioItems(
+                                    id={"type": "resolution",
+                                        "index": node.id},
+                                    options=[
+                                        {"label": "High", "value": f"{node.id}:high"},
+                                        {"label": "Medium", "value": f"{node.id}:medium"},
+                                        {"label": "Low", "value": f"{node.id}:low"},
+                                    ],
+                                    value=f"{node.id}:low",
+                                    inline=True,
+                                ),
+                            width=9),
+                    ]
+                ),
+                dbc.Row(
+                    dbc.Col(
+                            [ dbc.Button(f'Animate {anim_coord}', 
+                                        id={"type": "animation", 
+                                            "index": f'{node.id}:{anim_coord}'},
+                                        size="sm",
+                                        className="me-1",
+                                        color='light'
+                                        ) 
+                                        for anim_coord in coords ],
+                        width={'size':8, 'offset':2},
+                        )
+                    ),
+            ]
+
+        if plot_type.is_animation() or plot_type == PlotType.FourD or plot_type == PlotType.ThreeD:
+            # We need a way to track which figures generate 'click_data_list' data.
+            # The chidren MUST be the ID, this H4 is used to identify the figure that clicked inside
+            header = html.H4(f"{node.id}", style={"background-color": "yellow"},
+                                        id={"type": f"click_data_identifier", "index": node.id})
+        else:
+            header = html.H4(node.id, style={"background-color": "lightblue"})
 
         new_figure = dbc.Col(
-                        [
-                            anim_buttons,
-                            fig,
-                            dbc.Button(
-                                f"{node.id}",
-                                id={"type": f"fig_button", "index": node.id},
-                            )
-                        ],
-                        # style={"background-color": "lightblue"},
-                        width=width)
+                            [
+                                header,
+                                *anim_options,
+                                # Buttons with reduced pad and margin
+                                html.Div([ dbc.Button("x", id={"type":"close_figure", "index":node.id}, color="danger"
+                                                    , size="sm", className="mr-1 mb-1"),
+                                            ], className="d-flex justify-content-end"),
+                                fig,
+                                # dbc.Button(
+                                #     f"{node.id}",
+                                #     id={"type": f"fig_button", "index": node.id},
+                                # )
+                            ],
+                            # style={"background-color": "lightblue"},
+                            id = f'figure:{node.id}',
+                            width=width)
+
         return new_figure
 
-    def create_first_level_figure(self, prev_layout, selected_fields, plot_type):
+    def create_first_level_figure(self, selected_fields, plot_type) -> list:
 
-        new_col = []
+        new_figures = []
         col_width = 4
 
         for c_field in selected_fields:
@@ -73,19 +116,17 @@ class Dashboard:
             new_node = TreeNode(id, self.data[c_field], plot_type=plot_type, 
                                 field_name=c_field, parent=self.tree_root) # type: ignore
             self.tree_root.add_child(new_node) # type: ignore
-            new_col.append(self.add_field(col_width, new_node))
+            new_figures.append(self.add_field(col_width, new_node))
 
-        if len(prev_layout) == 0:  # Return a new column
-            return new_col
-        else:
-            patch = Patch()
-            for c_col in new_col:
-                patch.append(c_col)
-            return patch
+        return new_figures
 
-    def create_deeper_level_figure(self, prev_layout, parent_id, plot_type, anim_coord=None):
 
-        new_col = []
+    def create_deeper_level_figure(self, parent_id, plot_type, 
+                                   anim_coord=None, 
+                                   resolution=None,
+                                   clicked_data=None) -> list:
+
+        new_figures = []
 
         parent_node = self.tree_root.locate(parent_id)
         data = parent_node.get_data()
@@ -97,19 +138,30 @@ class Dashboard:
             id = f'{parent_node_id}_{anim_coord}_anim'
             new_node = TreeNode(id, data, plot_type=plot_type, 
                                 field_name=parent_field, parent=parent_node,
-                                animation=True, anim_coord_name=anim_coord) 
+                                animation=True, anim_coord_name=anim_coord, 
+                                spatial_res=resolution) # type: ignore
             parent_node.add_child(new_node) 
-            new_col.append(self.add_field(col_width, new_node))
+            new_figures.append(self.add_field(col_width, new_node))
 
-        if len(prev_layout) == 0:  # Return a new column
-            return [dbc.Row(new_col)]
-        else:
-            prev_layout[0]["props"]["children"] = prev_layout[0]["props"][
-                "children"
-            ] + new_col
-            return prev_layout
+        if plot_type == PlotType.OneD:
+            # We are assuming we made it to here because someone clicked on the map
+            # so we need to plot a profile
+            id = self.id_generator(f'{parent_node_id}_prof')
+            coords = parent_node.get_coord_names()
 
+            lon = clicked_data["points"][0]["x"]
+            lat = clicked_data["points"][0]["y"]
 
+            # We are assuming that the last two coords are always lat and lon
+            data = data.sel({coords[-2]:lat, coords[-1]:lon}, method="nearest") 
+            title = f'{parent_field} at {lat:0.2f}, {lon:0.2f}'
+            new_node = TreeNode(id, data, title, plot_type=plot_type, 
+                                field_name=parent_field, parent=parent_node) # type: ignore
+            parent_node.add_child(new_node) 
+            new_figures.append(self.add_field(col_width, new_node))
+
+        return new_figures
+        
     def get_field_names(self, field_dimension) -> list:
             '''
             This method returns the field names for a given dimension
@@ -127,7 +179,6 @@ class Dashboard:
 
             return [(x,str(self.data[x].shape)) for x in dim_names]
 
-
     def get_field(self, field_name):
         '''
         This method returns the field for a given field name
@@ -138,7 +189,13 @@ class Dashboard:
         '''
         This method returns an id for a given field name
         '''
-        return field_name
+        new_id = field_name
+        count = 2
+        while self.tree_root.locate(new_id) is not None:
+            new_id = field_name + f'_{count}'
+            count += 1
+
+        return new_id
 
 
 

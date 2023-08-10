@@ -31,7 +31,7 @@ def get_all_coords(data):
     zaxis = xr.DataArray(np.empty((0, 0)))
 
     if len(coords) == 1: # In this case we assume we have time, z, lat, lon
-        lats = data[coords[0]]
+        lons = data[coords[0]]
 
     if len(coords) >= 2: # In this case we assume we have time, z, lat, lon
         lats = data[coords[-2]]
@@ -45,6 +45,15 @@ def get_all_coords(data):
         zaxis = data[coords[1]]
 
     return times, zaxis, lats, lons
+
+def print_tree(node, level=0, prefix="Root: "):
+    print(" " * (level * 4) + prefix + str(node.id))
+    for i, child in enumerate(node.get_children()):
+        if i == len(node.get_children()) - 1:
+            new_prefix = "└── "
+        else:
+            new_prefix = "├── "
+        print_tree(child, level + 1, prefix=new_prefix)
 
 class PlotType(Enum):
     OneD = 1

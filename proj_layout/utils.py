@@ -46,10 +46,14 @@ def cmocean_to_plotly(cmap, pl_entries):
     return pl_colorscale
 
 
+
+# 'drawline', 'drawopenpath', 'drawclosedpath', 'drawcircle', 'drawrect', 'eraseshape', 'select2d', 'lasso2d',
+# Complete list here: https://github.com/plotly/plotly.js/blob/master/src/plot_api/plot_config.js
 def get_buttons_config():
     def_config = dict(
+ 
                 modeBarButtonsToRemove=['zoom2d','zoomOut2d','zoomIn2d'],
-                modeBarButtonsToAdd=['drawline', 'drawcircle', 'lasso2d', 'select2d'],
+                modeBarButtonsToAdd=['drawline', 'lasso2d', 'select2d'],
                 scrollZoom=True,
                 displayModeBar= True,
                 displaylogo=False,
@@ -69,7 +73,7 @@ def get_def_slider(prefix_name, suffix, n_steps):
                     "xanchor": "left"
                 },
                 "transition": {"duration": 10, "easing": "cubic-in-out"},
-                "len": 0.5, # (from 0 to 1) 0.5 --> slider is half the width of the figure
+                "len": 1, # (from 0 to 1) 0.5 --> slider is half the width of the figure
                 "x": 0, # 1 moves one figure with to the righ
                 "y": 0, # 1 moves one figure with to the top
                 "steps":[ {'args':[ 
@@ -87,7 +91,7 @@ def get_update_buttons(dim_names, n_steps):
     buttons = dict(
                     type="buttons",
                     buttons=
-                        [dict(label=f"Play {dim_name}", method="animate", 
+                        [dict(label=f"Play", method="animate", 
                             args=[[f'{dim_name}_{c_time}' for c_time in range(n_steps[i])], {
                                     "frame": {"duration": 200, "redraw": True},
                                     "fromcurrent": True,
