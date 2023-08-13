@@ -66,17 +66,13 @@ app.layout = dbc.Container(
             [
                 dbc.Col(
                     [ 
-                        dbc.Button("Plot", id="but_plot_all", color="secondary"),
+                        dbc.Button("Plot selected fileds", id="but_plot_all", color="success", size='lg'),
                         dcc.Loading(
                             id="loading-1",
                             children=[html.Div(id="loading-output-1")],
                             type="circle",
                         ),
                     ], width={"size": 6, "offset": 4}),
-                # dbc.Col(
-                #     [ 
-                #         dbc.Button("Plot Together", id="but_plot_together", color="secondary"),
-                #     ], width={"size": 4, "offset": 2}),
             ]
         ),
         dbc.Row([], id="display_area"),
