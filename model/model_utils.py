@@ -3,6 +3,35 @@ import numpy as np
 from collections import deque
 import xarray as xr
 
+def select_spatial_location(data, lat, lon, coord_names) -> xr.DataArray:
+    '''
+    This method returns the data for a given lat and lon
+    '''
+
+    # TOOD We are assuming that the last two coords are always lat and lon
+    subset_data = data.sel({coord_names[-2]:lat, coord_names[-1]:lon}, method="nearest") 
+
+    return subset_data
+
+def select_profile(data, profile_coord, coord_names) -> xr.DataArray:
+    '''
+    This method returns the data for a given profile
+    '''
+    # Let's fix all dimensions at their 0th index except the profile_coord
+    indexing_dict = {dim: 0 for dim in coord_names if dim != profile_coord}  
+    coordinate = data.coords[profile_coord]
+
+    # Now, you can index your array using this dictionary
+    # This will give you a 1D array along the last profile dimension
+    profile = data.isel(indexing_dict)
+
+    # Get the non nan indexes from the profile and clip the coordinate
+    non_nan_indexes = np.where(~np.isnan(profile))[0]
+    profile = profile[non_nan_indexes]
+    coordinate = coordinate[non_nan_indexes]
+
+    return profile
+
 
 def select_anim_data(data, coord_idx, plot_type) -> xr.DataArray:
     data_anim = data
@@ -70,3 +99,8 @@ class PlotType(Enum):
 
     def can_request_animation(self):
         return self.value in {3, 4}
+
+class Resolutions(Enum):
+    LOW = "high"
+    MEDIUM = "medium"
+    HIGH = "low"

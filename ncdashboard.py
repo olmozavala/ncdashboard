@@ -8,14 +8,14 @@ from dash.exceptions import PreventUpdate
 import numpy as np
 
 from model.dashboard import Dashboard
-from model.dashboardstate import PlotType
+from model.TreeNode import PlotType
 from model.model_utils import print_tree
 
 path = "/home/olmozavala/Dropbox/MyGrants/2022/FYAP/ncdashboard/test_data/"
 # regex = "hycom_gom.nc"
 # path = "/home/olmozavala/Dropbox/TestData/netCDF/GoM"
 # path = "/unity/f1/ozavala/DATA/GOFFISH/AVISO/GoM"
-regex = "*.nc"
+regex = "gom_*.nc"
 
 # path = "/unity/f1/ozavala/DATA/GOFFISH/CHLORA/CICESE_NEMO_GOM_RAW"
 # path = "/unity/f1/ozavala/DATA/GOFFISH/CHLORA/CICESE_NEMO_GOM_RAW/"
@@ -28,7 +28,9 @@ regex = "*.nc"
 ncdash = Dashboard(path, regex)
 
 # https://dash.plotly.com/sharing-data-between-callbacks
-app = dash.Dash( __name__, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True,)
+app = dash.Dash( __name__, external_stylesheets=[dbc.themes.BOOTSTRAP,
+    "https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.5.0/font/bootstrap-icons.min.css", # Bootstrap Icons
+                                                 ], suppress_callback_exceptions=True,)
 
 def initial_menu():
     return [
@@ -129,41 +131,23 @@ def display_relayout_data(prev_children, selected_1d, selected_2d, selected_3d, 
                 new_figures = ncdash.create_first_level_figure(selected, plot_types[i])
                 for c_figure in new_figures:
                     patch.append(c_figure)
+
     # Closing a plot
-    elif type(triggered_id) == dash._utils.AttributeDict and triggered_id['type'] == 'close_figure':
+    elif type(triggered_id) == dash._utils.AttributeDict and triggered_id['type'] == 'close_figure': # type: ignore
         # print("------------------------- Closing figure! ----------------")
         node_id = triggered_id['index']
+        patch = ncdash.close_figure(node_id, prev_children, patch)
 
-        for idx, c_child in enumerate(prev_children):
-            # print(f"{c_child['props']['id'].split(':')[1]} --- {node_id}")
-            if c_child['props']['id'].split(':')[1] == node_id:
-                print(f"Removing child {c_child['props']['id']}")
-                # print(c_child)
-                del patch[idx]
-                # patch.remove(c_child)
-                ncdash.tree_root.remove_id(node_id)
-                break
-
-    # Second level plots and animations
-    elif type(triggered_id) == dash._utils.AttributeDict and triggered_id['type'] == 'animation':
+    # Create animations
+    elif type(triggered_id) == dash._utils.AttributeDict and triggered_id['type'] == 'animation': # type: ignore
         button_index = triggered_id['index'].split(":")
         node_id = button_index[0]
         anim_coord = button_index[1]
-        # TODO need to decide which plot type it is. Based on the parent type. If it was 
-        # a 3D plot, then it should be a 3D animation. If it was a 4D plot, then it should be a 4D animation
-        parent_node = ncdash.tree_root.locate(node_id)
-        if parent_node.get_plot_type() == PlotType.ThreeD:
-            plot_type = PlotType.ThreeD_Animation
-        else:
-            plot_type = PlotType.FourD_Animation
-        
-        print(resolution_list)
         resolution = [x.split(':')[1] for x in resolution_list if x.split(':')[0] == node_id][0] 
-        new_figures = ncdash.create_deeper_level_figure(node_id, plot_type, anim_coord, resolution)
-        for c_figure in new_figures:
-            patch.append(c_figure)
+        patch = ncdash.create_animation_figure(node_id, anim_coord, resolution, patch)
+
     # Second level plots clicked on map (should generate profile)
-    elif type(triggered_id) == dash._utils.AttributeDict and triggered_id['type'] == 'figure':
+    elif type(triggered_id) == dash._utils.AttributeDict and triggered_id['type'] == 'figure': # type: ignore
         # Check if it was a relayout event
         if ctx.triggered[0]['prop_id'].find('relayoutData') != -1:
             print(f'Selected data: {selected_data_list}')
@@ -180,10 +164,7 @@ def display_relayout_data(prev_children, selected_1d, selected_2d, selected_3d, 
             # TODO here we should also modify the original plot and add a dot where the user clicked
             click_data= click_data_list[click_index]
             
-            new_figures = ncdash.create_deeper_level_figure(node_id, plot_type, 
-                                                            clicked_data=click_data)
-            for c_figure in new_figures:
-                patch.append(c_figure)
+            patch = ncdash.create_profiles(node_id, plot_type, click_data, patch)
 
     elif len(prev_children) == 0:
         return html.Div('mydiv', style={"backgroundColor": "blue", "color": "white"}), []
