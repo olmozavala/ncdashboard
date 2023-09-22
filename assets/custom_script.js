@@ -16,3 +16,14 @@
 //   // Manually trigger an 'input' event so Dash can detect the change.
 //   windowSizeInput.dispatchEvent(new Event('input', { bubbles: true }));
 // }
+
+if(!window.dash_clientside) {window.dash_clientside = {};}
+
+window.dash_clientside.clientside = {
+    get_window_size: function() {
+        return {
+            width: window.innerWidth,
+            height: window.innerHeight
+        };
+    }
+};

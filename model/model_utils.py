@@ -57,7 +57,7 @@ def get_all_coords(data):
     lats = xr.DataArray(np.empty((0, 0)))
     lons = xr.DataArray(np.empty((0, 0)))
     times = xr.DataArray(np.empty((0, 0)))
-    zaxis = xr.DataArray(np.empty((0, 0)))
+    depth = xr.DataArray(np.empty((0, 0)))
 
     if len(coords) == 1: # In this case we assume we have time, z, lat, lon
         lons = data[coords[0]]
@@ -71,9 +71,9 @@ def get_all_coords(data):
         times = data[coords[0]]
 
     if len(coords) == 4: # In this case we assume we have time, z, lat, lon
-        zaxis = data[coords[1]]
+        depth = data[coords[1]]
 
-    return times, zaxis, lats, lons
+    return times, depth, lats, lons
 
 def print_tree(node, level=0, prefix="Root: "):
     print(" " * (level * 4) + prefix + str(node.id))

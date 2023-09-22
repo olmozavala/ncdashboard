@@ -1,7 +1,10 @@
 import xarray as xr
 from os.path import join
 from model.AnimationNode import AnimationNode
+from model.FourDNode import FourDNode
+from model.OneDNode import OneDNode
 from model.ProfileNode import ProfileNode
+from model.ThreeDNode import ThreeDNode
 from model.TreeNode import FigureNode
 import dash_bootstrap_components as dbc
 from dash import Patch, html, dcc
@@ -38,12 +41,38 @@ class Dashboard:
         self.two_d = two_d
         self.one_d = one_d
 
-    def add_field(self, width, node: FigureNode):
+    def create_default_figure(self, c_field, plot_type, new_node=None, window_ratio = 0.8):
+        '''
+        This method creates a default figure for the dashboard. It is called when the user hits the 'plot' button. 
+        '''
 
-        fig = node.create_figure()
-        plot_type = node.get_plot_type()
+        col_width = 4
+
+        if new_node is None:
+            id = self.id_generator(c_field)
+
+            if plot_type == PlotType.ThreeD:
+                new_node = ThreeDNode(id, self.data[c_field], time_idx=0,
+                                        plot_type=plot_type, field_name=c_field, parent=self.tree_root) # type: ignore
+
+            elif plot_type == PlotType.FourD:
+                new_node = FourDNode(id, self.data[c_field], time_idx=0, depth_idx=0, 
+                                        plot_type=plot_type, field_name=c_field, 
+                                        parent=self.tree_root) # type: ignore
+
+            elif plot_type == PlotType.OneD:
+                new_node = OneDNode(id, self.data[c_field], plot_type=plot_type, field_name=c_field, 
+                                        parent=self.tree_root) # type: ignore
+            else: 
+                new_node = FigureNode(id, self.data[c_field], plot_type=plot_type, field_name=c_field, 
+                                        parent=self.tree_root) # type: ignore
+
+            self.tree_root.add_child(new_node) # type: ignore
+
+        fig = new_node.create_figure()
+        plot_type = new_node.get_plot_type()
         
-        coords = node.get_animation_coords()
+        coords = new_node.get_animation_coords()
         # If we have animation coords and we are not plotting an animation we make the buttons
         anim_options = []
         frame_controls = []
@@ -54,13 +83,13 @@ class Dashboard:
                         dbc.Col( html.Div("Resolution:"), width=3),
                         dbc.Col( dbc.RadioItems(
                                     id={"type": "resolution",
-                                        "index": node.id},
+                                        "index": new_node.id},
                                     options=[
-                                        {"label": "High", "value": f"{node.id}:high"},
-                                        {"label": "Medium", "value": f"{node.id}:medium"},
-                                        {"label": "Low", "value": f"{node.id}:low"},
+                                        {"label": "High", "value": f"{new_node.id}:high"},
+                                        {"label": "Medium", "value": f"{new_node.id}:medium"},
+                                        {"label": "Low", "value": f"{new_node.id}:low"},
                                     ],
-                                    value=f"{node.id}:low",
+                                    value=f"{new_node.id}:low",
                                     inline=True,
                                 ),
                             width=9),
@@ -70,7 +99,7 @@ class Dashboard:
                     dbc.Col(
                             [ dbc.Button(f'Animate {anim_coord}', 
                                         id={"type": "animation", 
-                                            "index": f'{node.id}:{anim_coord}'},
+                                            "index": f'{new_node.id}:{anim_coord}'},
                                         size="sm",
                                         className="me-1",
                                         color='light'
@@ -86,10 +115,10 @@ class Dashboard:
                 html.Div([f"{anim_coord}", 
                     dbc.ButtonGroup(
                     [
-                        dbc.Button(html.I(className="bi bi-skip-backward"), color="light", id="skip-backward"),
-                        dbc.Button(html.I(className="bi bi-skip-start"),    color="light", id="skip-start"),
-                        dbc.Button(html.I(className="bi bi-skip-end"),      color="light", id="skip-end"),
-                        dbc.Button(html.I(className="bi bi-skip-forward"),  color="light", id="skip-forward"),
+                        dbc.Button(html.I(className="bi bi-skip-backward"), color="light", id={"type":"first_frame", "index":f'{anim_coord}:{new_node.id}'}),
+                        dbc.Button(html.I(className="bi bi-skip-start"),    color="light", id={"type":"prev_frame",  "index":f'{anim_coord}:{new_node.id}'}),
+                        dbc.Button(html.I(className="bi bi-skip-end"),      color="light", id={"type":"next_frame",  "index":f'{anim_coord}:{new_node.id}'}),
+                        dbc.Button(html.I(className="bi bi-skip-forward"),  color="light", id={"type":"last_frame",  "index":f'{anim_coord}:{new_node.id}'}),
                         ], size="sm",
                         ),
                 ]) for anim_coord in coords
@@ -98,42 +127,29 @@ class Dashboard:
         if plot_type.is_animation() or plot_type == PlotType.FourD or plot_type == PlotType.ThreeD:
             # We need a way to track which figures generate 'click_data_list' data.
             # The chidren MUST be the ID, this H4 is used to identify the figure that clicked inside
-            header = html.H4(f"{node.id}", style={"backgroundColor": "yellow"},
-                                        id={"type": f"click_data_identifier", "index": node.id})
+            # HIddden
+            header = html.H4(f"{new_node.id}", style={"backgroundColor": "yellow","display":"none"},
+                                        id={"type": f"click_data_identifier", "index": new_node.id})
         else:
-            header = html.H4(node.id, style={"backgroundColor": "lightblue"})
+            header = html.H4(new_node.id, style={"backgroundColor": "lightblue","display":"none"})
 
         new_figure = dbc.Col(
                             [
                                 header,
                                 *frame_controls,
                                 # Buttons with reduced pad and margin
-                                html.Div([ dbc.Button("x", id={"type":"close_figure", "index":node.id}, color="danger"
+                                html.Div([ dbc.Button("x", id={"type":"close_figure", "index":new_node.id}, color="danger"
                                                     , size="sm", className="mr-1 mb-1"),
                                             ], className="d-flex justify-content-end"),
                                 fig,
                                 *anim_options,
                             ],
-                            id = f'figure:{node.id}',
-                            width=width)
+                            id = f'figure:{new_node.id}',
+                            width=col_width)
 
         return new_figure
 
-    def create_first_level_figure(self, selected_fields, plot_type) -> list:
-
-        new_figures = []
-        col_width = 4
-
-        for c_field in selected_fields:
-            id = self.id_generator(c_field)
-            new_node = FigureNode(id, self.data[c_field], plot_type=plot_type, 
-                                field_name=c_field, parent=self.tree_root) # type: ignore
-            self.tree_root.add_child(new_node) # type: ignore
-            new_figures.append(self.add_field(col_width, new_node))
-
-        return new_figures
-
-    def create_profiles(self, parent_id, plot_type, clicked_data, patch) -> list:
+    def create_profiles(self, parent_id, clicked_data, patch) -> list:
 
         parent_node = self.tree_root.locate(parent_id)
         data = parent_node.get_data()
@@ -157,7 +173,7 @@ class Dashboard:
 
             profile_data = select_profile(subset_data, c_dim, dims)
             
-            new_node = ProfileNode(id, profile_data, lat, lon, c_dim, title, plot_type=plot_type, 
+            new_node = ProfileNode(id, profile_data, lat, lon, c_dim, title, plot_type=PlotType.OneD, 
                                 field_name=parent_field, parent=parent_node) # type: ignore
 
             parent_node.add_child(new_node) 
@@ -231,6 +247,40 @@ class Dashboard:
                 break
 
         return patch 
+
+    def update_figure(self, idx, current_node: FigureNode, patch):
+
+        '''
+        This method creates a new animation figure.
+        '''
+        fig = current_node.create_figure()
+        col_width = 4
+        
+        # If we have animation coords and we are not plotting an animation we make the buttons
+        anim_options = []
+
+        header = html.H4(f"{current_node.id}", style={"backgroundColor": "yellow"},
+                                    id={"type": f"click_data_identifier", "index": current_node.id})
+
+        new_figure = dbc.Col(
+                            [
+                                header,
+                                *anim_options,
+                                # Buttons with reduced pad and margin
+                                html.Div([ dbc.Button("x", id={"type":"close_figure", "index":current_node.id}, color="danger"
+                                                    , size="sm", className="mr-1 mb-1"),
+                                            ], className="d-flex justify-content-end"),
+                                fig,
+                            ],
+                            id = f'figure:{current_node.id}',
+                            width=col_width)
+
+        patch[idx] = new_figure
+
+        return patch
+
+
+
 
     def create_animation_figure(self, parent_id, anim_coord, resolution, patch):
         '''

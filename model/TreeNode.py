@@ -71,42 +71,7 @@ class FigureNode:
 
     # -------- Plotting methods ---------
     def create_figure(self):
-        if self.plot_type == PlotType.ThreeD or self.plot_type == PlotType.FourD:
-            return self._create_3d4d_figure()
-
-
-    def _create_3d4d_figure(self):
-        colormap = self.cmap
-        data = self.data  # Because it is 3D we assume the spatial coordinates are the last 2
-        times, _, lats, lons = get_all_coords(data)
-        lats = lats.values
-        lons = lons.values
-
-        if self.plot_type == PlotType.ThreeD:
-            data = data[0,:,:]
-        if self.plot_type == PlotType.FourD:
-            data = data[0, 0,:,:]
-
-        new_graph = dcc.Graph(
-                id={"type": "figure", "index": self.id},
-                figure=go.Figure(
-                        data=[go.Heatmap(z=data, colorscale=colormap, showscale=True, x=lons, y=lats)], 
-                        layout=go.Layout(title=self.id, 
-# zoom, pan, select, lasso, orbit, turntable, zoomInGeo, zoomOutGeo, autoScale2d, resetScale2d, hoverClosestCartesian, hoverClosestGeo, hoverClosestGl2d, hoverClosestPie, toggleHover, resetViews, toggleSpikelines, resetViewMapbox
-                                dragmode="pan", 
-                                height=350,
-                                margin=dict(
-                                    l=0,  # left margin
-                                    r=0,  # right margin
-                                    b=0,  # bottom margin
-                                    t=30,  # top margin
-                                    pad=0  # padding
-                                ),
-                            ),
-                    ),
-            config=get_buttons_config(),
-        )
-        return new_graph
+        print("This method should be overleaded")
 
     def add_child(self, node):
         self.children.append(node)

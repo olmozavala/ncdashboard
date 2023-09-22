@@ -48,6 +48,8 @@ def initial_menu():
 
 app.layout = dbc.Container(
     [
+        dcc.Store(id='window-size'),
+        html.Div(id='output-div'),
         dbc.Row(
             [
                 dbc.Col(
@@ -106,11 +108,28 @@ def clear_selected(n_clicks):
     Input({"type": "close_figure", "index": ALL}, "n_clicks"),
     Input({"type": "figure", "index":ALL}, 'clickData'),
     Input({"type": "figure", "index":ALL}, 'relayoutData'),
+    Input({"type": "first_frame", "index":ALL}, 'n_clicks'),
+    Input({"type": "prev_frame", "index":ALL}, 'n_clicks'),
+    Input({"type": "next_frame", "index":ALL}, 'n_clicks'),
+    Input({"type": "last_frame", "index":ALL}, 'n_clicks'),
+    Input('window-size', 'data')
 )
 def display_relayout_data(prev_children, selected_1d, selected_2d, selected_3d, selected_4d, 
                           n_clicks_plot_separated, click_data_identifiers,
-                          n_clicks_requestanimation,
-                          resolution_list, close_list, click_data_list, selected_data_list):
+                          n_clicks_requestanimation, resolution_list, close_list, click_data_list, selected_data_list,
+                            n_clicks_first_frame, n_clicks_prev_frame, n_clicks_next_frame, n_clicks_last_frame,
+                            window_size):
+
+
+    window_ratio = 0.8
+    if window_size is None:
+        print("Window size information is not available.")
+    else:
+        width = window_size.get('width', 'Unknown')
+        height = window_size.get('height', 'Unknown')
+        window_ratio = width/height
+        # print width, height
+        print(f"Window Width: {width}, Window Height: {height}")
 
     triggered_id = ctx.triggered_id
     print(f'Type: {type(triggered_id)}, Value: {triggered_id}')
@@ -124,19 +143,68 @@ def display_relayout_data(prev_children, selected_1d, selected_2d, selected_3d, 
     # Initial case, do nothing
     if triggered_id == None:
         return [], []
+
     # First level plots, directly from the menu
     elif triggered_id == 'but_plot_all':
         for i, selected in enumerate([selected_1d, selected_2d, selected_3d, selected_4d]):
             if selected!= None and len(selected) > 0:
-                new_figures = ncdash.create_first_level_figure(selected, plot_types[i])
-                for c_figure in new_figures:
-                    patch.append(c_figure)
+
+                for c_field in selected:
+                    new_figure = ncdash.create_default_figure(c_field, plot_types[i])
+                    patch.append(new_figure)
 
     # Closing a plot
     elif type(triggered_id) == dash._utils.AttributeDict and triggered_id['type'] == 'close_figure': # type: ignore
         # print("------------------------- Closing figure! ----------------")
         node_id = triggered_id['index']
         patch = ncdash.close_figure(node_id, prev_children, patch)
+
+    # Next frame
+    elif type(triggered_id) == dash._utils.AttributeDict and (triggered_id['type'] == 'next_frame' or triggered_id['type'] == 'prev_frame' or 
+     triggered_id['type'] == 'first_frame' or triggered_id['type'] == 'last_frame'): # type: ignore
+    
+        index = triggered_id['index'].split(":")
+        coord = index[0]
+        node_id = index[1]
+        node = ncdash.tree_root.locate(node_id)
+
+        coords = node.get_animation_coords()
+
+        # --------------- This part should be the same for all ------------
+        # Get the index of the coordinate
+        coord_index = coords.index(coord)
+
+        # First index should always be time (it doesn't matter if the name is other)
+        if triggered_id['type'] == 'next_frame':
+            if coord_index == 0: # For 4D first index 
+                node.next_time()
+            if coord_index == 1 and node.get_plot_type() == PlotType.FourD: # For 4D first index 
+                node.next_depth()
+        elif triggered_id['type'] == 'prev_frame':
+            if coord_index == 0:
+                node.prev_time()
+            if coord_index == 1 and node.get_plot_type() == PlotType.FourD: # For 4D first index
+                node.prev_depth()
+        elif triggered_id['type'] == 'first_frame':
+            if coord_index == 0:
+                node.set_time_idx(0)
+            if coord_index == 1 and node.get_plot_type() == PlotType.FourD: # For 4D first index
+                node.set_depth_idx(0)
+        elif triggered_id['type'] == 'last_frame':
+            if coord_index == 0:
+                node.set_time_idx(-1)
+            if coord_index == 1 and node.get_plot_type() == PlotType.FourD:
+                node.set_depth_idx(-1)
+        
+        # Update the figure
+        for idx, c_child in enumerate(prev_children):
+            # If we found the corresponding figure, remove it from the list of children
+            if c_child['props']['id'].split(':')[1] == node_id:
+                # print(f"Removing child {c_child['props']['id']}")
+
+                updated_figure = ncdash.create_default_figure(node.get_field_name(), node.get_plot_type(), node)
+                patch[idx] = updated_figure
+                break
 
     # Create animations
     elif type(triggered_id) == dash._utils.AttributeDict and triggered_id['type'] == 'animation': # type: ignore
@@ -146,25 +214,22 @@ def display_relayout_data(prev_children, selected_1d, selected_2d, selected_3d, 
         resolution = [x.split(':')[1] for x in resolution_list if x.split(':')[0] == node_id][0] 
         patch = ncdash.create_animation_figure(node_id, anim_coord, resolution, patch)
 
-    # Second level plots clicked on map (should generate profile)
+    # Second level plots (someone clicked on map)
     elif type(triggered_id) == dash._utils.AttributeDict and triggered_id['type'] == 'figure': # type: ignore
         # Check if it was a relayout event
         if ctx.triggered[0]['prop_id'].find('relayoutData') != -1:
             print(f'Selected data: {selected_data_list}')
         else:
+            #  (should generate profile)
             print(click_data_list)
             node_id = triggered_id['index'].split(":")[0]
             data_identifiers = np.array([x.split(':')[0] for x in click_data_identifiers])
             click_index = np.where(data_identifiers == node_id)[0][0]
-            # TODO need to decide which plot type it is. Based on the parent type. If it was 
-            # a 3D plot, then it should be a 3D animation. If it was a 4D plot, then it should be a 4D animation
-            parent_node = ncdash.tree_root.locate(node_id)
-            plot_type = PlotType.OneD
 
             # TODO here we should also modify the original plot and add a dot where the user clicked
             click_data= click_data_list[click_index]
             
-            patch = ncdash.create_profiles(node_id, plot_type, click_data, patch)
+            patch = ncdash.create_profiles(node_id, click_data, patch)
 
     elif len(prev_children) == 0:
         return html.Div('mydiv', style={"backgroundColor": "blue", "color": "white"}), []
@@ -173,6 +238,19 @@ def display_relayout_data(prev_children, selected_1d, selected_2d, selected_3d, 
 
     print_tree(ncdash.tree_root)
     return patch, []
+
+app.clientside_callback(
+    """
+    function(n_clicks) {
+        return {
+            width: window.innerWidth,
+            height: window.innerHeight
+        };
+    }
+    """,
+    Output('window-size', 'data'),
+    Input("but_plot_all", "n_clicks"),
+)
 
 if __name__ == "__main__":
     app.run_server(debug=True)
