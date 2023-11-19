@@ -29,6 +29,7 @@ ncdash = Dashboard(path, regex)
 
 # https://dash.plotly.com/sharing-data-between-callbacks
 app = dash.Dash( __name__, external_stylesheets=[dbc.themes.BOOTSTRAP,
+    # "bootstrap-icons.min.css", # Bootstrap Icons
     "https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.5.0/font/bootstrap-icons.min.css", # Bootstrap Icons
                                                  ], suppress_callback_exceptions=True,)
 
