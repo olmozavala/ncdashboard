@@ -1,4 +1,5 @@
 import xarray as xr
+import logging
 from os.path import join
 from model.AnimationNode import AnimationNode
 from model.FourDNode import FourDNode
@@ -12,13 +13,21 @@ from model.model_utils import PlotType, select_profile, select_spatial_location
 
 from proj_layout.utils import get_buttons_config, get_def_slider, get_update_buttons, select_colormap
 
+logger = logging.getLogger(__name__)
+
 # Make a class with attributes and methods to create a dashboard
 
 class Dashboard:
     def __init__(self, path, regex):
         self.path = path
         self.regex = regex
-        data = xr.open_mfdataset(join(self.path, self.regex), decode_times=False)
+
+        logger.info(f"Opening files in {self.path} with regex {self.regex}")
+        if isinstance(self.path, list):
+            data = xr.open_mfdataset(self.path, decode_times=False)
+        else:
+            data = xr.open_mfdataset(join(self.path, self.regex), decode_times=False)
+
         self.tree_root = FigureNode('root', data=data, parent=None) # type: ignore
         # From data identify which fields are 3D, 2D and 1D
         four_d = []

@@ -36,8 +36,7 @@ class FigureNode:
         else:
             self.title = title
 
-        self.coord_names = np.array(list(data.coords.keys())) # type: ignore
-
+        self.coord_names = np.array(list(data.coords.keys())) # type: ignorechildren
         # TODO Move outside of constructor
 
         self.plot_type = plot_type
@@ -56,7 +55,7 @@ class FigureNode:
                 found = child.locate(id)
                 if found is not None:
                     return found
-        return None
+        return None # type: ignore
 
     def remove_id(self, id):
         '''Removes the node with the given id'''

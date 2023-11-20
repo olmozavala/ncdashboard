@@ -1,0 +1,29 @@
+name: ncdashboard
+channels:
+    - conda-forge
+    - nodefaults
+    - anaconda
+dependencies:
+    - python=*.*.*
+    - pandas=*.*.*
+    - numpy=*.*.*
+    - matplotlib=*.*.*
+    - cartopy=*.*
+    - xarray=*.*
+    - dash=*.*
+    - dash-bootstrap-components=*.*
+    - geopandas=*.*
+    - colorcet=*.*
+    - datashader=*.*
+    - jupyterlab=*.*
+    - cmocean=*.*
+    - holoviews=*.*
+    - geoviews=*.*
+    - docopt=*.*
+    - netcdf4=*.*
+    - motuclient=*.*
+    - opencv=*.*
+    - scikit-image=*.*
+    - pytest=*.*
+    - ipykernel=*.*
+    - ipywidgets=*.*
