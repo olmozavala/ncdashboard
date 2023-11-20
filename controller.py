@@ -63,8 +63,8 @@ class NcDashboard:
         self.register_callbacks()
 
     def start(self):
-        self.app.run_server(debug=True)
-        # self.app.run_server(debug=False, port=8080, host='146.201.212.115')
+        # self.app.run_server(debug=True)
+        self.app.run_server(debug=False, port=8080, host='146.201.212.115')
 
     def initial_menu(self):
         return [

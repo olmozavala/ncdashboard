@@ -15,7 +15,7 @@ def select_colormap(field_name):
     if np.any([field_name.find(x) != -1 for x in ('ssh', 'srfhgt', 'adt','surf_el')]):
         # cmaps_fields.append(cmocean.cm.deep_r)
         cmap = cmocean.cm.curl
-    elif np.any([field_name.find(x) != -1 for x in ('temp', 'sst', 'temperature')]):
+    elif np.any([field_name.find(x) != -1 for x in ('temp', 'sst', 'temperature','t2m')]):
         cmap = cmocean.cm.thermal
     elif np.any([field_name.find(x) != -1 for x in ('vorticity', 'vort')]):
         cmap = cmocean.cm.curl
@@ -27,7 +27,7 @@ def select_colormap(field_name):
         cmap = cmocean.cm.diff
     elif field_name.find('binary') != -1:
         cmap = cmocean.cm.oxy
-    elif np.any([field_name.find(x) != -1 for x in ('u_', 'v_', 'u-vel.', 'v-vel.','velocity')]):
+    elif np.any([field_name.find(x) != -1 for x in ('u10', 'v10', 'u_', 'v_', 'u-vel.', 'v-vel.','velocity')]):
         cmap = cmocean.cm.speed
 
     return cmocean_to_plotly(cmap, 256)
