@@ -21,7 +21,7 @@ class FigureNode:
         self.data = data
         try:
             # If there is a long name, then we use it
-            self.long_name = data.long_name
+            self.long_name = data.long_name.capitalize()
         except:
             pass
 
@@ -32,7 +32,7 @@ class FigureNode:
             pass
 
         if title is None:
-            self.title = id
+            self.title = self.long_name
         else:
             self.title = title
 
@@ -104,6 +104,9 @@ class FigureNode:
 
     def get_field_name(self):
         return self.field_name
+
+    def get_long_name(self):
+        return self.long_name
 
     def get_bbox(self):
         return self.bbox

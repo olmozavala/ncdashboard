@@ -10,6 +10,7 @@ from model.TreeNode import FigureNode
 import dash_bootstrap_components as dbc
 from dash import Patch, html, dcc
 from model.model_utils import PlotType, select_profile, select_spatial_location
+from proj_layout.figures import get_animation_controls, get_frame_controls
 
 from proj_layout.utils import get_buttons_config, get_def_slider, get_update_buttons, select_colormap
 
@@ -82,56 +83,12 @@ class Dashboard:
         plot_type = new_node.get_plot_type()
         
         coords = new_node.get_animation_coords()
-        # If we have animation coords and we are not plotting an animation we make the buttons
+        # If we have animation coordinates and we are not plotting an animation we make the buttons
         anim_options = []
         frame_controls = []
         if len(coords) > 0 and not plot_type.is_animation():
-            anim_options = [
-                dbc.Row( 
-                    [
-                        dbc.Col( html.Div("Resolution:"), width=3),
-                        dbc.Col( dbc.RadioItems(
-                                    id={"type": "resolution",
-                                        "index": new_node.id},
-                                    options=[
-                                        {"label": "High", "value": f"{new_node.id}:high"},
-                                        {"label": "Medium", "value": f"{new_node.id}:medium"},
-                                        {"label": "Low", "value": f"{new_node.id}:low"},
-                                    ],
-                                    value=f"{new_node.id}:low",
-                                    inline=True,
-                                ),
-                            width=9),
-                    ]
-                ),
-                dbc.Row(
-                    dbc.Col(
-                            [ dbc.Button(f'Animate {anim_coord}', 
-                                        id={"type": "animation", 
-                                            "index": f'{new_node.id}:{anim_coord}'},
-                                        size="sm",
-                                        className="me-1",
-                                        color='light'
-                                        ) 
-                                        for anim_coord in coords ],
-                        width={'size':8, 'offset':2},
-                        )
-                    ),
-            ]
-
-            frame_controls = [
-                # Add a div with the name of the field
-                html.Div([f"{anim_coord}", 
-                    dbc.ButtonGroup(
-                    [
-                        dbc.Button(html.I(className="bi bi-skip-backward"), color="light", id={"type":"first_frame", "index":f'{anim_coord}:{new_node.id}'}),
-                        dbc.Button(html.I(className="bi bi-skip-start"),    color="light", id={"type":"prev_frame",  "index":f'{anim_coord}:{new_node.id}'}),
-                        dbc.Button(html.I(className="bi bi-skip-end"),      color="light", id={"type":"next_frame",  "index":f'{anim_coord}:{new_node.id}'}),
-                        dbc.Button(html.I(className="bi bi-skip-forward"),  color="light", id={"type":"last_frame",  "index":f'{anim_coord}:{new_node.id}'}),
-                        ], size="sm",
-                        ),
-                ]) for anim_coord in coords
-            ]
+            anim_options = get_animation_controls(new_node.id, coords)
+            frame_controls = get_frame_controls(new_node.id, coords) 
 
         if plot_type.is_animation() or plot_type == PlotType.FourD or plot_type == PlotType.ThreeD:
             # We need a way to track which figures generate 'click_data_list' data.
@@ -152,6 +109,9 @@ class Dashboard:
                                             ], className="d-flex justify-content-end"),
                                 fig,
                                 *anim_options,
+                                # html.Div([ dbc.Button("Download Data", id={"type":"download_data", "index":new_node.id}, 
+                                #                       color="success", size="sm", className="mr-1 mb-1"),
+                                #             ], className="d-flex justify-content-center"),
                             ],
                             id = f'figure:{new_node.id}',
                             width=col_width)
@@ -159,6 +119,9 @@ class Dashboard:
         return new_figure
 
     def create_profiles(self, parent_id, clicked_data, patch) -> list:
+        '''
+        Creates a profile for the given parent_id and clicked_data
+        '''
 
         parent_node = self.tree_root.locate(parent_id)
         data = parent_node.get_data()
@@ -178,7 +141,7 @@ class Dashboard:
 
         for c_dim in dims:
             id = self.id_generator(f'{parent_node_id}_{c_dim}_prof')
-            title = f'{parent_field} at {lat:0.2f}, {lon:0.2f} ({c_dim.capitalize()})' # type: ignore
+            title = f'{parent_node.get_long_name()} at {lat:0.2f}, {lon:0.2f} ({c_dim.capitalize()})' # type: ignore
 
             profile_data = select_profile(subset_data, c_dim, dims)
             
@@ -188,7 +151,8 @@ class Dashboard:
             parent_node.add_child(new_node) 
             fig = new_node.create_figure()
             
-            header = html.H4(new_node.id, style={"backgroundColor": "lightblue"})
+            header = html.H4(new_node.id, style={"backgroundColor": "lightblue","display":"none"})
+
 
             new_figure = dbc.Col(
                                 [
@@ -211,23 +175,24 @@ class Dashboard:
             This method returns the field names for a given dimension
             The dimension can be 1D, 2D, 3D or 4D
             '''
-            dim_names = []
+            dim_fields = []
             if field_dimension == "1D":
-                dim_names = self.one_d
+                dim_fields = self.one_d
             elif field_dimension == "2D":
-                dim_names = self.two_d
+                dim_fields = self.two_d
             elif field_dimension == "3D":
-                dim_names = self.three_d
+                dim_fields = self.three_d
             elif field_dimension == "4D":
-                dim_names = self.four_d
+                dim_fields = self.four_d
 
-            return [(x,str(self.data[x].shape)) for x in dim_names]
+            try:
+                # Using long name form the data
+                dim_name = [self.data[x].long_name for x in dim_fields]
+            except:
+                # Using the variable name
+                dim_name = [x for x in dim_fields]
 
-    # def get_field(self, field_name):
-    #     '''
-    #     This method returns the field for a given field name
-    #     '''
-    #     return self.data[field_name]
+            return [(dim_name[i],x, str(self.data[x].shape)) for i, x in enumerate(dim_fields)]
 
     def id_generator(self, field_name):
         '''
@@ -287,9 +252,6 @@ class Dashboard:
         patch[idx] = new_figure
 
         return patch
-
-
-
 
     def create_animation_figure(self, parent_id, anim_coord, resolution, patch):
         '''

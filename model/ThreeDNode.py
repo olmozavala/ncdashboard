@@ -31,11 +31,12 @@ class ThreeDNode(FigureNode):
 
         data = data[self.time_idx, :,:]
 
+        self.title = f'{self.title} at {self.coord_names[0].capitalize()} {self.time_idx}'
         new_graph = dcc.Graph(
                 id={"type": "figure", "index": self.id},
                 figure=go.Figure(
                         data=[go.Heatmap(z=data, colorscale=colormap, showscale=True, x=lons, y=lats)], 
-                        layout=go.Layout(title=self.id, 
+                        layout=go.Layout(title=self.title, 
 # zoom, pan, select, lasso, orbit, turntable, zoomInGeo, zoomOutGeo, autoScale2d, resetScale2d, hoverClosestCartesian, hoverClosestGeo, hoverClosestGl2d, hoverClosestPie, toggleHover, resetViews, toggleSpikelines, resetViewMapbox
                                 dragmode="pan", 
                                 height=350,

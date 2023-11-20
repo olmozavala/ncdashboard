@@ -32,7 +32,7 @@ class FourDNode(ThreeDNode):
         if self.plot_type == PlotType.FourD:
             data = data[self.time_idx, self.depth_idx,:,:]
 
-        title = f'{self.title}:{self.id} at {self.coord_names[0]} {self.time_idx} and {self.coord_names[1]} {self.depth_idx}'
+        title = f'{self.title} at {self.coord_names[0].capitalize()} {self.time_idx} and {self.coord_names[1].capitalize()} {self.depth_idx}'
         new_graph = dcc.Graph(
                 id={"type": "figure", "index": self.id},
                 figure=go.Figure(
