@@ -3,6 +3,7 @@
 Usage:
   ncdashboard.py  <path>
   ncdashboard.py  <path> --regex <regex>
+  ncdashboard.py  <path> --regex <regex> --port <port> --host <host>
   ncdashboard.py (-h | --help)
   ncdashboard.py --version
 
@@ -27,11 +28,22 @@ if __name__ == "__main__":
     print(args)
     path = args['<path>']
     regex = args['<regex>']
+    port = args['<port>']
+    host = args['<host>']
+    if port:
+        port = int(port)
+    else:
+        port = 8050
+
+    if host:
+        host = host
+    else:
+        host = '127.0.0.1'
 
     # https://dash.plotly.com/sharing-data-between-callbacks
     if regex:
-        ncdashboard = NcDashboard(path, regex)
+        ncdashboard = NcDashboard(path, regex, port=port, host=host)
     else:
-        ncdashboard = NcDashboard(path, '')
+        ncdashboard = NcDashboard(path, '', port=port, host=host)
 
     ncdashboard.start()
