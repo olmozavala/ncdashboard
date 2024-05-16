@@ -30,7 +30,8 @@ class FourDNode(ThreeDNode):
 
         print(f"Time: {self.time_idx}, Depth: {self.depth_idx}")  
         if self.plot_type == PlotType.FourD:
-            data = data[self.time_idx, self.depth_idx,:,:]
+            # data = data[self.time_idx, self.depth_idx,:,:]
+            data = data[self.time_idx, :, :, self.depth_idx] # DELTE just for Nespresso
 
         title = f'{self.title} at {self.coord_names[0].capitalize()} {self.time_idx} and {self.coord_names[1].capitalize()} {self.depth_idx}'
         new_graph = dcc.Graph(
