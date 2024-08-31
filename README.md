@@ -54,6 +54,8 @@ To test using multiple netcdf files in `test_data`, run the following command:
 python ncdashboard.py test_data --regex "*.nc"
 ```
 
+![Alt Text](figs/example.gif)
+
 # Links
 This is a list of important links for the project.
 

@@ -24,6 +24,10 @@ class Dashboard:
         self.regex = regex
 
         logger.info(f"Opening files in {self.path} with regex {self.regex}")
+        # data = xr.open_dataset('https://tds.hycom.org/thredds/dodsC/GLBa0.08/expt_91.2/2018')
+        # data = xr.open_dataset('https://tds.hycom.org/thredds/dodsC/GLBy0.08/expt_93.0/ts3z', decode_times=False)
+        # data = xr.open_dataset('https://tds.hycom.org/thredds/dodsC/GOMu0.04/expt_90.1m000/data/hindcasts/2023', decode_times=False)
+        # data = xr.open_dataset('https://coastwatch.noaa.gov/thredds/dodsC/CoastWatch/VIIRS/npp-n20/chloci/DailyGlobalDINEOF/WW00/LoM', decode_times=False)
         if isinstance(self.path, list):
             data = xr.open_mfdataset(self.path, decode_times=False)
         else:

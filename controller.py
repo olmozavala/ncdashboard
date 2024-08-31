@@ -16,7 +16,10 @@ class NcDashboard:
     "https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.5.0/font/bootstrap-icons.min.css", # Bootstrap Icons
                                                  ], suppress_callback_exceptions=True)
  
-    def __init__(self, file_paths, regex):
+    def __init__(self, file_paths, regex, host = '127.0.0.1', port = 8050):
+
+        self.host = host
+        self.port = port
 
         logging.info('Starting NcDashboard...')
         self.ncdash = Dashboard(file_paths, regex)
@@ -63,8 +66,7 @@ class NcDashboard:
         self.register_callbacks()
 
     def start(self):
-        # self.app.run_server(debug=True)
-        self.app.run_server(debug=False, port=8080, host='146.201.212.115')
+        self.app.run_server(debug=False, port=self.port, host=self.host)
 
     def initial_menu(self):
         return [
