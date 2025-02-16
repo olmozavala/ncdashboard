@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/index.tsx","./src/navigation/index.tsx","./src/redux/store.ts","./src/redux/slices/AuthSlice.ts","./src/screens/index.ts","./src/screens/Home/Home.tsx"],"version":"5.7.3"}

@@ -1,10 +1,14 @@
 import React from 'react';
 
+import { store } from './redux/store';
+import { Provider } from 'react-redux'
+import RootNavigator from './navigation';
+
 function App() {
   return (
-    <div className="App">
-best web ever!  
-    </div>
+    <Provider store={store}>
+      <RootNavigator />
+    </Provider>
   );
 }
 
