@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* https://coolors.co/palette/0d1b2a-1b263b-415a77-778da9-e0e1dd */
+@theme {
+  --color-mint-500: oklch(0.72 0.11 178);
+  --color-nc-100: oklch(21.77% 0.0356 251.29);
+  --color-nc-200: oklch(26.92% 0.0424 262.7);
+  --color-nc-300: oklch(45.99% 0.0564 252.67);
+  --color-nc-400: oklch(63.63% 0.0493 254.61);
+  --color-nc-500: oklch(90.78% 0.0055 117.93);
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -7,6 +17,7 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: oklch(10.88% 0.0356 251.29);
 }
 
 code {
