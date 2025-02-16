@@ -10,5 +10,5 @@
 +---------------------------------------------------------------+
 """
 
-from .data.data import router as data_router
-from .image.image import router as image_router
+from .data import router as data_router
+from .image import router as image_router

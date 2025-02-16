@@ -1,6 +1,5 @@
 from typing import Annotated
 from fastapi import Depends, FastAPI, APIRouter
-from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import importlib 
