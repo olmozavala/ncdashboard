@@ -1,0 +1,6 @@
+from enum import Enum
+
+class ErrorType(Enum):
+    INVALID_REQUEST = "INVALID_REQUEST"
+    INVALID_ROUTE = "INVALID_ROUTE"
+    INTERNAL_ERROR = "INTERNAL_ERROR"
