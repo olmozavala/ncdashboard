@@ -59,5 +59,5 @@ else
     echo "Building and serving the React app..."
     yarn build
     yarn global add serve  # Install 'serve' if not installed
-    serve -s build --port $PORT
+    serve -s dist -l $PORT
 fi
