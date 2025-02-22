@@ -8,3 +8,10 @@ class ErrorType(Enum):
     # Dataset errors
     INVALID_DATASET = "INVALID_DATASET"
     EMPTY_DATASET_DIR = "EMPTY_DATASET_DIR"
+    
+    # Cache errors
+    CACHE_NOT_FOUND = "CACHE_NOT_FOUND"
+    CACHE_INDEX_ERROR = "CACHE_INDEX_ERROR"
+    
+    # Image errors
+    IMAGE_NOT_FOUND = "IMAGE_NOT_FOUND"

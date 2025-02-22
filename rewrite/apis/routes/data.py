@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 import os
 from utils.constants import DATA_DIR
-from app_types import ErrorType
+from models import ErrorType
 from services.data import get_available_datasets
 
 router = APIRouter()

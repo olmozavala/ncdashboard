@@ -12,3 +12,4 @@
 
 from .data import router as data_router
 from .image import router as image_router
+from .cache import router as cache_router

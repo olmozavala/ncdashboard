@@ -33,26 +33,26 @@ def load_data():
     return xr.open_dataset("../data/gom_t007.nc", decode_times=False)
 
 
-data = load_data()
-# print(data["water_u"][0,:,:,:])
-times, zaxis, lats, lons = get_all_coords(data["water_u"][0,:,:,0])
+# data = load_data()
+# # print(data["water_u"][0,:,:,:])
+# times, zaxis, lats, lons = get_all_coords(data["water_u"][0,:,:,0])
 
-z_data = data["water_u"][0,0,:,:]
+# z_data = data["water_u"][0,0,:,:]
 
-fig = go.Figure(
-    data=[go.Heatmap(
-        z=z_data,
-        x=lats.values,
-        y=lons.values,
-        colorscale='Viridis',
-        showscale=True,
-    )],
-    layout=go.Layout(
-        title="Hycom GOM",
-        xaxis_title="Longitude",
-        yaxis_title="Latitude",
-    )
-)
+# fig = go.Figure(
+#     data=[go.Heatmap(
+#         z=z_data,
+#         x=lats.values,
+#         y=lons.values,
+#         colorscale='Viridis',
+#         showscale=True,
+#     )],
+#     layout=go.Layout(
+#         title="Hycom GOM",
+#         xaxis_title="Longitude",
+#         yaxis_title="Latitude",
+#     )
+# )
 
-print(data)
+# print(data)
 # fig.show()
