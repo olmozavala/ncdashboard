@@ -28,6 +28,14 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
+# Check Python version (must be 3.12 or later)
+PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+
+if (( $(echo "$PYTHON_VERSION > 3.12" | bc -l) )); then
+    echo "Python 3.12 or later is required. Found Python $PYTHON_VERSION."
+    exit 1
+fi
+
 # Create virtual environment
 if [ -d "$VENV_DIR" ]; then
     echo "Virtual environment already exists. Activating..."
