@@ -5,6 +5,8 @@ import uvicorn
 import importlib 
 import sys
 import os 
+from contextlib import asynccontextmanager
+from services.db import nc_db
 
 # Add the current script's directory to the system path
 sys.path.append(os.path.dirname(__file__))
@@ -15,7 +17,17 @@ routers = [getattr(router_module, var) for var in dir(router_module) if not var.
 routers = [router for router in routers if isinstance(router, APIRouter)]
 
 
-app = FastAPI()
+
+# Create an instance of the database
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    nc_db.load_db()
+    yield
+    await nc_db.save_db()
+
+
+app = FastAPI(lifespan=lifespan)
 
 # Configure CORS middleware to allow requests from any origin
 origins: list[str] = ["*"]

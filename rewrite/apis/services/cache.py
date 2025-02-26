@@ -4,8 +4,7 @@ from uuid import uuid4
 from datetime import datetime, timezone
 import xarray as xr
 from utils.constants import CACHE_DIR, DATA_DIR, CACHE_INDEX_FILE
-from models.cache import CacheIndex, CachedDataset, CachedImage
-from models.errors import ErrorType
+from models import ErrorType, CacheIndex, CachedDataset 
 
 from .image import generate_image
 
@@ -26,7 +25,7 @@ def check_cache():
 
 
 
-def generate_cache_files():
+def generate_cache_files(dataset_name: str = None):
     data_files = os.listdir(DATA_DIR)
     
     index:CacheIndex = {
@@ -54,7 +53,7 @@ def generate_cache_files():
         
         for t in range(1):#range(data.dims['time']):
             for z in range(1): #range(data.dims['depth']):
-                image_index:CachedImage = {
+                image_index = {
                     'id': str(uuid4()),
                     'dataset_id': d['id'],
                     'variable': f'water_u&t={t}&z={z}',

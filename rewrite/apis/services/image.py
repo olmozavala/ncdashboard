@@ -5,7 +5,6 @@ from utils.constants import DATA_DIR
 
 # TODO: remove the variable parameter default value
 def generate_image(dataset, time_index, depth_index, variable = "water_u", data = None):
-    print(dataset, time_index, depth_index, variable)
     data = xr.open_dataset(os.path.join(DATA_DIR, dataset), decode_times=False) if data is None else data
     z_data = data[variable][time_index, depth_index, :, :]
     

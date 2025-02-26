@@ -8,6 +8,7 @@ class ErrorType(Enum):
     # Dataset errors
     INVALID_DATASET = "INVALID_DATASET"
     EMPTY_DATASET_DIR = "EMPTY_DATASET_DIR"
+    DATASET_NOT_FOUND = "DATASET_NOT_FOUND"
     
     # Cache errors
     CACHE_NOT_FOUND = "CACHE_NOT_FOUND"
@@ -15,3 +16,6 @@ class ErrorType(Enum):
     
     # Image errors
     IMAGE_NOT_FOUND = "IMAGE_NOT_FOUND"
+    
+    # Session errors
+    SESSION_NOT_FOUND = "SESSION_NOT_FOUND"
