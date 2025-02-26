@@ -30,7 +30,7 @@ const SideBar = () => {
             }
             {
                 available_datasets.length > 0 ? available_datasets.map((dataset) => {
-                    return <Button key={dataset} text={dataset} onClick={() => console.log(dataset)} additionalClasses="w-full my-2" />
+                    return <Button key={dataset} text={dataset.name} onClick={() => console.log(dataset)} additionalClasses="w-full my-2" />
                 }) : null
             }
         </div>
