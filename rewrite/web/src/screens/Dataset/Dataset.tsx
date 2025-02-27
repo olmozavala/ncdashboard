@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { fetchDatasetInfo, fetchDataSets } from "../../redux/slices/DataSlice";
 import { Button, CheckBox } from "../../components";
 import { createSession, listSessions } from "../../redux/slices/SessionSlice";
-import { Panel, PanelGroup } from "react-resizable-panels";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 
 const DatasetScreen = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -74,7 +74,7 @@ const DatasetScreen = () => {
   };
 
   return (
-    <div className="text-nc-500 p-4">
+    <div className="text-nc-500 p-4 w-full">
       {!selectedDataset ? (
         <>
           <p className="text-xl mb-4">Dataset not found</p>
@@ -89,10 +89,10 @@ const DatasetScreen = () => {
       ) : (
         <h1 className="text-2xl">{selectedDataset?.name}</h1>
       )}
-
+    
       <PanelGroup direction="horizontal">
-        <Panel>
-          <div className="flex flex-col gap-4 mt-8">
+        <Panel defaultSize={25}>
+          <div className="flex flex-col gap-4 mt-8 px-4">
             {activeDataset && (
               <>
                 <h3 className="text-lg">Variables</h3>
@@ -104,13 +104,21 @@ const DatasetScreen = () => {
                         checked={v.checked}
                         onChange={() => handleVariableClick(v.variable)}
                       />
-                      <p className="text-sm text-nc-400 pl-6">Dims: {v.dimensions.join(",")}</p>
+                      <p className="text-sm text-nc-400 pl-6">
+                        Dims: {v.dimensions.join(",")}
+                      </p>
                     </div>
                   ))}
                 </div>
               </>
             )}
           </div>
+        </Panel>
+        <PanelResizeHandle className="border" />
+        <Panel defaultSize={75}>
+            <div className="text-nc-500 p-4" >
+                <Button text="Plot" onClick={() => {}} additionalClasses="px-4"/>
+            </div>
         </Panel>
       </PanelGroup>
     </div>

@@ -35,6 +35,7 @@ const Checkbox = ({
         checked={isChecked}
         name={name}
         id={id}
+        readOnly
         style={
           disabled
             ? { backgroundColor: "rgb(156 163 175)", cursor: "not-allowed" }
