@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 import os
 from utils.constants import DATA_DIR
 from models import ErrorType
-from services.data import get_available_datasets
+from services.data import get_available_datasets, get_dataset_info_by_id
 from services.db import nc_db
 
 router = APIRouter()
@@ -11,6 +12,8 @@ BASE_URL = "/data"
 
 router.prefix = BASE_URL
 router.tags = [BASE_URL]
+
+
 
 
 @router.get("/")
@@ -40,5 +43,14 @@ async def get_dataset(dataset_id:str = None):
         if not dataset:
             raise HTTPException(status_code=404, detail=ErrorType.DATASET_NOT_FOUND.value)
         return dataset
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=ErrorType.INTERNAL_ERROR.value)
+
+@router.get("/info")
+async def get_dataset_info(dataset_id:str = None):
+    if not dataset_id:
+        raise HTTPException(status_code=400, detail=ErrorType.INVALID_DATASET.value)
+    try:    
+        return get_dataset_info_by_id(dataset_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=ErrorType.INTERNAL_ERROR.value)
