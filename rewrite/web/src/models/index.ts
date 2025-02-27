@@ -63,3 +63,20 @@ export interface NC_DataBaseType {
     datasets: Dataset[];
     sessions: Session[];
 }
+
+
+export type DatasetInfo = {
+    attrs: {
+        classification_level: string;
+        distribution_statement: string;
+        downgrade_date: string;
+        classification_authority: string;
+        institution: string;
+        source: string;
+        history: string;
+        field_type: string;
+        Conventions: string;
+    };
+    dims: Record<string, number>; // Dictionary where keys are dimension names and values are numbers
+    variables_info: Record<string, string[]>; // Dictionary where keys are variable names and values are arrays of dimension names
+};
