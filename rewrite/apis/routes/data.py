@@ -53,4 +53,5 @@ async def get_dataset_info(dataset_id:str = None):
     try:    
         return get_dataset_info_by_id(dataset_id)
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail=ErrorType.INTERNAL_ERROR.value)

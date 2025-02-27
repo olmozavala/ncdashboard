@@ -74,5 +74,11 @@ class NC_DB:
                 return dataset
         return None
     
+    def get_dataset_by_path(self, dataset_path:str):
+        for dataset in self.db['datasets']:
+            if dataset['path'] == dataset_path:
+                return dataset
+        return None
+    
 
 nc_db = NC_DB()

@@ -9,9 +9,10 @@ from services.db import nc_db
 
 def get_available_datasets():
     data_files = os.listdir(DATA_DIR)
-
     for file in data_files:
-        dataset = nc_db.get_dataset_by_name(file)
+        if not file.endswith(".nc"):
+            continue
+        dataset = nc_db.get_dataset_by_path(os.path.join(DATA_DIR, file))
         if not dataset:
             dataset = Dataset()
             dataset["id"] = str(uuid4())
@@ -24,7 +25,8 @@ def get_available_datasets():
 
 def get_dataset_info_by_id(dataset_id: str):
     dataset = nc_db.get_dataset_by_id(dataset_id)
-    data = xr.open_dataset(os.path.join(DATA_DIR, dataset["name"]), decode_times=False)
+    print(dataset)
+    data = xr.open_dataset(dataset["path"], decode_times=False)
     return {
         "attrs": data.attrs,
         "dims": data.dims,
