@@ -12,6 +12,8 @@ export interface DataState {
     dataset: Dataset;
     info: DatasetInfo;
   } | null;
+  // TODO: Remove tempImage
+  tempImage: any;
 }
 
 const initialState: DataState = {
@@ -20,6 +22,7 @@ const initialState: DataState = {
   loading: false,
   errorMessage: "",
   activeDataset: null,
+  tempImage: null,
 };
 
 export const DataSlice = createSlice({
@@ -55,18 +58,41 @@ export const DataSlice = createSlice({
         state.error = false;
         state.errorMessage = "";
       })
-      .addCase(fetchDatasetInfo.fulfilled, (state, action:PayloadAction<DatasetInfo,string,{arg:string}>) => {
-        state.activeDataset = {
-          dataset: (state.available_datasets.find(d => d.id === action.meta.arg) as Dataset),
-          info: action.payload,
-        };
-        state.loading = false;
-        state.error = false;
-      })
+      .addCase(
+        fetchDatasetInfo.fulfilled,
+        (
+          state,
+          action: PayloadAction<DatasetInfo, string, { arg: string }>
+        ) => {
+          state.activeDataset = {
+            dataset: state.available_datasets.find(
+              (d) => d.id === action.meta.arg
+            ) as Dataset,
+            info: action.payload,
+          };
+          state.loading = false;
+          state.error = false;
+        }
+      )
       .addCase(fetchDatasetInfo.rejected, (state) => {
         state.error = true;
         state.loading = false;
         state.errorMessage = "Failed to fetch dataset info";
+      })
+      .addCase(generateImage.pending, (state) => {
+        state.loading = true;
+        state.error = false;
+        state.errorMessage = "";
+      })
+      .addCase(generateImage.fulfilled, (state, action) => {
+        state.tempImage = action.payload;
+        state.loading = false;
+        state.error = false;
+      })
+      .addCase(generateImage.rejected, (state) => {
+        state.error = true;
+        state.loading = false;
+        state.errorMessage = "Failed to generate image";
       });
   },
 });
@@ -100,6 +126,38 @@ export const fetchDatasetInfo = createAsyncThunk(
       );
       const data = response.data;
       return data;
+    } catch (error) {
+      return rejectWithValue(error);
+    }
+  }
+);
+
+export const generateImage = createAsyncThunk(
+  "data/generateImage",
+  async (
+    params: {
+      dataset: string;
+      variable: string;
+      time_index: number;
+      depth_index: number;
+    },
+    { rejectWithValue }
+  ) => {
+    try {
+      const response = await axios.post(
+        import.meta.env.VITE_BACKEND_API_URL + `/image/generate`,
+        params,
+        {
+          responseType: "blob",
+        }
+      );
+      const data = response.data;
+
+      const blob = new Blob([data], { type: "image/jpeg" });
+      const url = URL.createObjectURL(blob);
+
+      console.log(url);
+      return url;
     } catch (error) {
       return rejectWithValue(error);
     }

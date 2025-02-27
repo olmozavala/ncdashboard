@@ -2,7 +2,11 @@ import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppDispatch, RootState } from "../../redux/store";
 import { useEffect, useState } from "react";
-import { fetchDatasetInfo, fetchDataSets } from "../../redux/slices/DataSlice";
+import {
+  fetchDatasetInfo,
+  fetchDataSets,
+  generateImage,
+} from "../../redux/slices/DataSlice";
 import { Button, CheckBox } from "../../components";
 import { createSession, listSessions } from "../../redux/slices/SessionSlice";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
@@ -11,7 +15,7 @@ const DatasetScreen = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const { datasetId } = useParams();
-  const { available_datasets, loading, activeDataset, error, errorMessage } =
+  const { available_datasets, loading, activeDataset, error, errorMessage, tempImage } =
     useSelector((state: RootState) => state.data);
   const { sessions } = useSelector((state: RootState) => state.session);
 
@@ -73,6 +77,20 @@ const DatasetScreen = () => {
     );
   };
 
+  const handlePlotClick = () => {
+    if (selectedDataset)
+      dispatch(
+        generateImage({
+          dataset: selectedDataset?.name,
+          variable: [
+            ...variables.filter((v) => v.checked).map((v) => v.variable),
+          ][0],
+          depth_index: 0,
+          time_index: 0,
+        })
+      );
+  };
+
   return (
     <div className="text-nc-500 p-4 w-full">
       {!selectedDataset ? (
@@ -89,7 +107,7 @@ const DatasetScreen = () => {
       ) : (
         <h1 className="text-2xl">{selectedDataset?.name}</h1>
       )}
-    
+
       <PanelGroup direction="horizontal">
         <Panel defaultSize={25}>
           <div className="flex flex-col gap-4 mt-8 px-4">
@@ -116,9 +134,10 @@ const DatasetScreen = () => {
         </Panel>
         <PanelResizeHandle className="border" />
         <Panel defaultSize={75}>
-            <div className="text-nc-500 p-4" >
-                <Button text="Plot" onClick={() => {}} additionalClasses="px-4"/>
-            </div>
+          <div className="text-nc-500 p-4">
+            <Button text="Plot" onClick={handlePlotClick} additionalClasses="px-4" />
+            {tempImage && <img src={tempImage} alt="plot" />}
+          </div>
         </Panel>
       </PanelGroup>
     </div>

@@ -7,7 +7,7 @@ interface CheckboxPropType {
   disabled?: boolean;
   id?: string;
   name?: string;
-  onChange?: (value: boolean) => void;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 const Checkbox = ({
@@ -18,24 +18,17 @@ const Checkbox = ({
   name = "",
   id = "",
 }: CheckboxPropType) => {
-  const [isChecked, setIsChecked] = useState<boolean>(checked);
-  const handleChange = () => {
-    setIsChecked(!isChecked);
-    if (onChange) {
-      onChange(!isChecked);
-    }
-  };
+
   return (
     <div
       className="block flex justify-start items-center mb-1 cursor-pointer"
-      onClick={handleChange}
     >
       <input
         type="checkbox"
-        checked={isChecked}
+        checked={checked}
         name={name}
         id={id}
-        readOnly
+        onChange={onChange}
         style={
           disabled
             ? { backgroundColor: "rgb(156 163 175)", cursor: "not-allowed" }
