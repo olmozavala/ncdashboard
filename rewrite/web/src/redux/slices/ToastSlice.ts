@@ -1,6 +1,4 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import type { PayloadAction } from "@reduxjs/toolkit";
-import axios from "axios";
 
 export interface ToastState {
   show: boolean;
@@ -54,8 +52,7 @@ export const openToast = createAsyncThunk(
       });
       return { msg, type };
     } catch (error) {
-      console.log("error", error);
-      rejectWithValue(error);
+      return rejectWithValue(error);
     }
   }
 );

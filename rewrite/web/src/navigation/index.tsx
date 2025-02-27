@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { DatasetsScreen, HomeScreen } from "../screens";
+import { SelectDatasetScreen, HomeScreen, DatasetScreen } from "../screens";
 import { Footer, Toast } from "../components";
 
 const RootNavigator = () => {
@@ -11,7 +11,8 @@ const RootNavigator = () => {
           <Route path="/">
             <Route index element={<HomeScreen />} />
           </Route>
-          <Route path="/datasets" element={<DatasetsScreen />} />
+          <Route path="/datasets" element={<SelectDatasetScreen />} />
+          <Route path="/:datasetId" element={<DatasetScreen />} />
         </Routes>
       </BrowserRouter>
       <Footer />

@@ -1,7 +1,7 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
-import { Dataset } from "../../models"
+import { Dataset } from "../../models";
 
 export interface DataState {
   available_datasets: Dataset[];
@@ -14,7 +14,7 @@ const initialState: DataState = {
   available_datasets: [],
   error: false,
   loading: false,
-  errorMessage: ""
+  errorMessage: "",
 };
 
 export const DataSlice = createSlice({
@@ -26,10 +26,11 @@ export const DataSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    builder.addCase(fetchDataSets.fulfilled, (state, action) => {
-      state.available_datasets = action.payload;
-      state.loading = false;
-    })
+    builder
+      .addCase(fetchDataSets.fulfilled, (state, action) => {
+        state.available_datasets = action.payload;
+        state.loading = false;
+      })
       .addCase(fetchDataSets.rejected, (state) => {
         state.error = true;
         state.loading = false;
@@ -40,24 +41,24 @@ export const DataSlice = createSlice({
         state.loading = true;
         state.error = false;
         state.errorMessage = "";
-      })
-  }
+      });
+  },
 });
 
 export const fetchDataSets = createAsyncThunk(
   "data/fetchDataSets",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get(import.meta.env.VITE_BACKEND_API_URL + "/data/list");
+      const response = await axios.get(
+        import.meta.env.VITE_BACKEND_API_URL + "/data/list"
+      );
       const data = response.data.datasets;
       return data;
     } catch (error) {
-      console.log("error", error);
-      rejectWithValue(error);
+      return rejectWithValue(error);
     }
   }
-
-)
+);
 
 // Action creators are generated for each case reducer function
 export const { setData } = DataSlice.actions;
