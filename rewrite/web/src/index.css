@@ -1,5 +1,5 @@
 @import "tailwindcss";
-
+@import "@xyflow/react/dist/style.css";
 /* https://coolors.co/palette/0d1b2a-1b263b-415a77-778da9-e0e1dd */
 @theme {
   --color-mint-500: oklch(0.72 0.11 178);
@@ -23,4 +23,12 @@ body {
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+
+.nc-custom-node {
+  border: 1px solid #eee;
+  padding: 5px;
+  border-radius: 5px;
+  background-color: var(--rf-node-background);
 }
