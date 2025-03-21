@@ -14,6 +14,7 @@ export interface DataState {
   } | null;
   // TODO: Remove tempImage
   tempImage: any;
+  tempImages: { [key: string]: any };
 }
 
 const initialState: DataState = {
@@ -22,6 +23,7 @@ const initialState: DataState = {
   loading: false,
   errorMessage: "",
   activeDataset: null,
+  tempImages: {},
   tempImage: null,
 };
 
@@ -35,6 +37,9 @@ export const DataSlice = createSlice({
     ) => {
       state.activeDataset = action.payload;
     },
+    setImage: (state, action: PayloadAction<any>) => {
+      state.tempImage = action.payload;
+    }
   },
   extraReducers: (builder) => {
     builder
@@ -88,6 +93,9 @@ export const DataSlice = createSlice({
         state.tempImage = action.payload;
         state.loading = false;
         state.error = false;
+        state.tempImages = {
+          ...state.tempImages,
+          [action.meta.arg.variable + action.meta.arg.depth_index]: action.payload}
       })
       .addCase(generateImage.rejected, (state) => {
         state.error = true;
@@ -165,5 +173,5 @@ export const generateImage = createAsyncThunk(
 );
 
 // Action creators are generated for each case reducer function
-export const { setActiveDataset } = DataSlice.actions;
+export const { setActiveDataset, setImage } = DataSlice.actions;
 export default DataSlice.reducer;

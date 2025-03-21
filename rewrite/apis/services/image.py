@@ -25,8 +25,7 @@ def generate_image(dataset, time_index, depth_index, variable = "water_u", data 
             yaxis_title="Latitude",
         )
     )
-    
-    
+     
 
     fig.update_layout(
         xaxis=dict(visible=False),
