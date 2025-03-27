@@ -10,6 +10,11 @@
   --color-nc-500: oklch(90.78% 0.0055 117.93);
 }
 
+.leaflet-container {
+  height: 500px;
+  width: 100%;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',

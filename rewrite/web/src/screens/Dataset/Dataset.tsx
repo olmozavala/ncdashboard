@@ -2,6 +2,10 @@ import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppDispatch, RootState } from "../../redux/store";
 import { useEffect, useState } from "react";
+import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+
+import "leaflet/dist/leaflet.css";
+
 import {
   fetchDatasetInfo,
   fetchDataSets,
@@ -39,11 +43,11 @@ const DatasetScreen = () => {
     (session) => session.dataset_id === datasetId
   );
 
+
   const handlePlotClick = () => {
     const datasetName = selectedDataset?.name;
     const variableName = variables.find((v) => v.checked)?.variable;
     if (variableName && datasetName) {
-      console.log(tempImages.hasOwnProperty(variableName + depthIndex));
       if (tempImages.hasOwnProperty(variableName + depthIndex)) {
         dispatch(setImage(tempImages[variableName + depthIndex]));
       } else {
@@ -156,7 +160,31 @@ const DatasetScreen = () => {
         </Panel>
         <PanelResizeHandle className="border" />
         <Panel defaultSize={50}>
-          {tempImage && <img src={tempImage} alt="plot" />}
+          {tempImage && (
+            <img
+              style={{ opacity: 0.7, position: "absolute", zIndex: 100 }}
+              src={tempImage}
+              alt="plot"
+            />
+          )}
+          <div style={{
+            zIndex: 90,
+            width: "100%",
+            height: "100%",
+            position: "absolute",
+          }}>
+            <MapContainer
+              center={[51.505, -0.09]}
+              zoom={13}
+              scrollWheelZoom={false}
+              style={{ height: "100%" }}
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+            </MapContainer>
+          </div>
         </Panel>
       </PanelGroup>
     </div>

@@ -20,6 +20,7 @@ const SelectDataset = () => {
   }, [dispatch]);
 
   const onDatasetSelect = (datasetId: string) => {
+    // TODO: Implement session creation
     // Check if there are sessions available
     // const dataset_sessions = sessions.filter((session) => session.dataset_id === datasetId);
     // if(sessions.length === 0 || dataset_sessions.length === 0) {
