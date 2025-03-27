@@ -25,10 +25,21 @@ def get_available_datasets():
 
 def get_dataset_info_by_id(dataset_id: str):
     dataset = nc_db.get_dataset_by_id(dataset_id)
-    print(dataset)
     data = xr.open_dataset(dataset["path"], decode_times=False)
+    var_info = {var: list(data[var].dims) for var in data.data_vars}
+    
+    
     return {
         "attrs": data.attrs,
         "dims": data.dims,
-        "variables_info" : {var: list(data[var].dims) for var in data.data_vars}
+        "variables_info" : var_info,
+    }
+
+
+def get_dataset_lat_lon(dataset_id: str):
+    dataset = nc_db.get_dataset_by_id(dataset_id)
+    data = xr.open_dataset(dataset["path"], decode_times=False)
+    return {
+        "lat": data["lat"].values.tolist(),
+        "lon": data["lon"].values.tolist(),
     }

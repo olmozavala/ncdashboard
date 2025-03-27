@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 import os
 from utils.constants import DATA_DIR
 from models import ErrorType
-from services.data import get_available_datasets, get_dataset_info_by_id
+from services.data import get_available_datasets, get_dataset_info_by_id, get_dataset_lat_lon
 from services.db import nc_db
 
 router = APIRouter()
@@ -52,6 +52,16 @@ async def get_dataset_info(dataset_id:str = None):
         raise HTTPException(status_code=400, detail=ErrorType.INVALID_DATASET.value)
     try:    
         return get_dataset_info_by_id(dataset_id)
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail=ErrorType.INTERNAL_ERROR.value)
+    
+@router.get("/info/lat_lon")
+async def get_lat_lon(dataset_id:str = None):
+    if not dataset_id:
+        raise HTTPException(status_code=400, detail=ErrorType.INVALID_DATASET.value)
+    try:    
+        return get_dataset_lat_lon(dataset_id)
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail=ErrorType.INTERNAL_ERROR.value)
