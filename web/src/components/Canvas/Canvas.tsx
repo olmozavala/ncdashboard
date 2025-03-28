@@ -10,7 +10,7 @@ import {
   useNodesState,
 } from "@xyflow/react";
 
-import customNodes from "../../components/nodes";
+import customNodes from "../nodes";
 import { useCallback, useEffect, useRef } from "react";
 import { NC_Node } from "../../models";
 

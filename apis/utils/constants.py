@@ -1,7 +1,7 @@
 import os
 
 # Datasets
-DATA_DIR = os.path.join(os.path.dirname(__file__), '../../../test_data')
+DATA_DIR = os.path.join(os.path.dirname(__file__), '../../test_data')
 # DATA_DIR = "/research/osz09/DATA/anand"
 
 # Cache
