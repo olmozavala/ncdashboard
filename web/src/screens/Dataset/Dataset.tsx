@@ -1,8 +1,8 @@
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppDispatch, RootState } from "../../redux/store";
-import { useEffect, useState } from "react";
-import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import { useEffect, useRef, useState } from "react";
+import { MapContainer, useMap, TileLayer} from "react-leaflet";
 
 import "leaflet/dist/leaflet.css";
 
@@ -11,11 +11,25 @@ import {
   fetchDataSets,
   generateImage,
   setImage,
+  getLatLon,
 } from "../../redux/slices/DataSlice";
 import { Button, CheckBox } from "../../components";
 import { listSessions } from "../../redux/slices/SessionSlice";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { datasetVariableType } from "../../models";
+
+const FitBoundsComponent = ({ bounds }:{bounds:any}) => {
+  const map = useMap();
+
+  // Automatically fit the map to the bounds when the component is loaded
+  useEffect(() => {
+    if (bounds) {
+      map.fitBounds(bounds);
+    }
+  }, [map, bounds]);
+
+  return null;
+};
 
 const DatasetScreen = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -29,11 +43,16 @@ const DatasetScreen = () => {
     errorMessage,
     tempImages,
     tempImage,
+    tempLat,
+    tempLon,
   } = useSelector((state: RootState) => state.data);
   const { sessions } = useSelector((state: RootState) => state.session);
 
   const [variables, setVariables] = useState<datasetVariableType>([]);
   const [depthIndex, setDepthIndex] = useState(0);
+  // const [mapDimensions, setMapDimensions] = useState({ width: 0, height: 0 });
+
+  const imageRef = useRef<HTMLImageElement>(null);
 
   const selectedDataset = available_datasets.find(
     (dataset) => dataset.id === datasetId
@@ -43,7 +62,6 @@ const DatasetScreen = () => {
     (session) => session.dataset_id === datasetId
   );
 
-
   const handlePlotClick = () => {
     const datasetName = selectedDataset?.name;
     const variableName = variables.find((v) => v.checked)?.variable;
@@ -51,14 +69,17 @@ const DatasetScreen = () => {
       if (tempImages.hasOwnProperty(variableName + depthIndex)) {
         dispatch(setImage(tempImages[variableName + depthIndex]));
       } else {
-        dispatch(
-          generateImage({
-            dataset: datasetName,
-            variable: variableName,
-            depth_index: depthIndex,
-            time_index: 0, // TODO: Add time index selection
-          })
-        );
+        if (datasetId) {
+          dispatch(
+            generateImage({
+              dataset: datasetName,
+              variable: variableName,
+              depth_index: depthIndex,
+              time_index: 0, // TODO: Add time index selection
+            })
+          );
+          dispatch(getLatLon({ dataset: datasetId }));
+        }
       }
     }
   };
@@ -69,6 +90,18 @@ const DatasetScreen = () => {
       temp_v.checked = temp_v.variable === v.variable;
     });
     setVariables(temp);
+  };
+
+  const resizeMap = () => {
+    if (imageRef.current) {
+      const height = imageRef.current.height;
+      const width = imageRef.current.width;
+      // setMapDimensions({ width, height }); // TODO: This value is always 0, 0; fix it
+      // map.fitBounds([
+        // [tempLat[0], tempLat[tempLat.length - 1]],
+        // [tempLon[0], tempLon[tempLon.length - 1]],
+      // ])
+    }
   };
 
   useEffect(() => {
@@ -108,6 +141,12 @@ const DatasetScreen = () => {
   useEffect(() => {
     handlePlotClick();
   }, [depthIndex]);
+
+  useEffect(() => {
+    resizeMap();
+  }, [tempImage]);
+
+
   return (
     <div className="text-nc-500 p-4 w-full">
       {!selectedDataset ? (
@@ -162,28 +201,41 @@ const DatasetScreen = () => {
         <Panel defaultSize={50}>
           {tempImage && (
             <img
-              style={{ opacity: 0.7, position: "absolute", zIndex: 100 }}
+              style={{ opacity: 0.5, position: "absolute", zIndex: 100 }}
               src={tempImage}
               alt="plot"
+              ref={imageRef}
             />
           )}
-          <div style={{
-            zIndex: 90,
-            width: "100%",
-            height: "100%",
-            position: "absolute",
-          }}>
+          <div
+            style={{
+              zIndex: 90,
+              width: "100%",
+              height: "100%",
+              position: "absolute",
+            }}
+          >
+          {tempLat.length > 0 && tempLon.length > 0 && (
             <MapContainer
-              center={[51.505, -0.09]}
-              zoom={13}
+              zoom={5}
               scrollWheelZoom={false}
-              style={{ height: "100%" }}
+              center={
+                [tempLat[0] - ((tempLat[0] - tempLat[tempLat.length - 1]) / 2), tempLon[0] - ((tempLon[0] - tempLon[tempLon.length - 1]) / 2)]
+              }
+              style={{ height: 500, width: 700 }} // TODO: Make this responsive
             >
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
+              {/* <FitBoundsComponent
+                bounds={[
+                  [tempLat[0], tempLat[tempLat.length - 1]],
+                  [tempLon[0], tempLon[tempLon.length - 1]],
+                ]}
+              /> */}
             </MapContainer>
+          )}
           </div>
         </Panel>
       </PanelGroup>

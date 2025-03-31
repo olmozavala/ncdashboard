@@ -15,6 +15,8 @@ export interface DataState {
   // TODO: Remove tempImage
   tempImage: any;
   tempImages: { [key: string]: any };
+  tempLat: number[]; // TODO: save lat and lon with image
+  tempLon: number[]; // TODO: save lat and lon with image
 }
 
 const initialState: DataState = {
@@ -25,6 +27,8 @@ const initialState: DataState = {
   activeDataset: null,
   tempImages: {},
   tempImage: null,
+  tempLat: [],
+  tempLon: [],
 };
 
 export const DataSlice = createSlice({
@@ -101,6 +105,22 @@ export const DataSlice = createSlice({
         state.error = true;
         state.loading = false;
         state.errorMessage = "Failed to generate image";
+      })
+      .addCase(getLatLon.pending, (state) => {
+        state.loading = true;
+        state.error = false;
+        state.errorMessage = "";
+      })
+      .addCase(getLatLon.fulfilled, (state, action) => {
+        state.tempLat = action.payload.lat;
+        state.tempLon = action.payload.lon;
+        state.loading = false;
+        state.error = false;
+      })
+      .addCase(getLatLon.rejected, (state) => {
+        state.error = true;
+        state.loading = false;
+        state.errorMessage = "Failed to fetch lat lon";
       });
   },
 });
@@ -166,6 +186,31 @@ export const generateImage = createAsyncThunk(
 
       console.log(url);
       return url;
+    } catch (error) {
+      return rejectWithValue(error);
+    }
+  }
+);
+
+export const getLatLon = createAsyncThunk(
+  "data/getLatLon",
+  async (
+    params: {
+      dataset: string;
+    },
+    { rejectWithValue }
+  ) => {
+    try {
+      const response = await axios.get(
+        import.meta.env.VITE_BACKEND_API_URL + `/data/info/lat_lon`,
+        {
+          params: {
+            dataset_id: params.dataset,
+          },
+        }
+      );
+      const data = response.data;
+      return data;
     } catch (error) {
       return rejectWithValue(error);
     }
