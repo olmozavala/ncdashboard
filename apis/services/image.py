@@ -21,21 +21,17 @@ def generate_image(dataset, time_index, depth_index, variable = "water_u", data 
         )],
         layout=go.Layout(
             title="Hycom GOM",
-            xaxis_title="Longitude",
-            yaxis_title="Latitude",
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+            margin=dict(l=0, r=0, t=0, b=0),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+
         )
     )
      
-
-    fig.update_layout(
-        xaxis=dict(visible=False),
-        yaxis=dict(visible=False),
-        margin=dict(l=0, r=0, t=0, b=0),
-        showlegend=False
-    )
-
     fig.update_traces(showscale=False)
 
-    image_data = fig.to_image(format="jpeg")
+    image_data = fig.to_image(format="png")
 
     return image_data
