@@ -15,6 +15,7 @@ import { listSessions } from "../../redux/slices/SessionSlice";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { datasetVariableType } from "../../models";
 import Map from "../../components/Map/Map";
+import { openToast } from "../../redux/slices/ToastSlice";
 
 const DatasetScreen = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -35,9 +36,6 @@ const DatasetScreen = () => {
 
   const [variables, setVariables] = useState<datasetVariableType>([]);
   const [depthIndex, setDepthIndex] = useState(0);
-  // const [mapDimensions, setMapDimensions] = useState({ width: 0, height: 0 });
-
-  // const imageRef = useRef<HTMLImageElement>(null);
 
   const selectedDataset = available_datasets.find(
     (dataset) => dataset.id === datasetId
@@ -47,25 +45,50 @@ const DatasetScreen = () => {
     (session) => session.dataset_id === datasetId
   );
 
-  const handlePlotClick = () => {
+  const plotAll = async () => {
+    const datasetName = selectedDataset?.name;
+    const variableName = variables.find((v) => v.checked)?.variable;
+    const depthCount = activeDataset?.info.dims["depth"];
+
+    if (variableName === undefined) {
+      dispatch(openToast({
+        "msg": "Please select a variable",
+        "type": "info",
+        "time": 2000
+      }))
+      return;
+    }
+
+    if(datasetId){
+      dispatch(getLatLon({ dataset: datasetId }));
+    }
+
+    if(depthCount && datasetName && variableName) {
+      for(let i = 0; i < depthCount; i++) {
+        if(!tempImages.hasOwnProperty(variableName + i)){
+          dispatch(
+            generateImage({
+              dataset: datasetName,
+              variable: variableName,
+              depth_index: i,
+              time_index: 0, // TODO: Add time index selection
+            })
+          )
+        }
+      }
+      
+    }
+
+
+  }
+
+  const handleDepthChange = () => {
     const datasetName = selectedDataset?.name;
     const variableName = variables.find((v) => v.checked)?.variable;
     if (variableName && datasetName) {
       if (tempImages.hasOwnProperty(variableName + depthIndex)) {
         dispatch(setImage(tempImages[variableName + depthIndex]));
-      } else {
-        if (datasetId) {
-          dispatch(
-            generateImage({
-              dataset: datasetName,
-              variable: variableName,
-              depth_index: depthIndex,
-              time_index: 0, // TODO: Add time index selection
-            })
-          );
-          dispatch(getLatLon({ dataset: datasetId }));
-        }
-      }
+      } 
     }
   };
 
@@ -77,7 +100,6 @@ const DatasetScreen = () => {
     setVariables(temp);
   };
 
-  const resizeMap = () => {};
 
   useEffect(() => {
     if (available_datasets.length === 0) {
@@ -99,6 +121,7 @@ const DatasetScreen = () => {
     }
   }, [selectedDataset]);
 
+
   useEffect(() => {
     if (activeDataset !== null) {
       setVariables(
@@ -114,12 +137,8 @@ const DatasetScreen = () => {
   }, [activeDataset]);
 
   useEffect(() => {
-    handlePlotClick();
+    handleDepthChange();
   }, [depthIndex]);
-
-  useEffect(() => {
-    resizeMap();
-  }, [tempImage]);
 
   return (
     <div className="text-nc-500 p-4 w-full">
@@ -152,6 +171,10 @@ const DatasetScreen = () => {
                 />
               );
             })}
+
+            <br />
+
+            <Button loading={loading} onClick={() => plotAll()} text="Plot"  />
 
             <br />
 

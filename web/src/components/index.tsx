@@ -4,3 +4,4 @@ export {default as Footer} from './Footer/Footer';
 export {default as Toast} from './Toast/Toast';
 export {default as CheckBox} from './CheckBox/CheckBox';
 export {default as Canvas} from './Canvas/Canvas';
+export {default as Map} from './Map/Map'

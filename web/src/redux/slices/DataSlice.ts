@@ -94,7 +94,6 @@ export const DataSlice = createSlice({
         state.errorMessage = "";
       })
       .addCase(generateImage.fulfilled, (state, action) => {
-        state.tempImage = action.payload;
         state.loading = false;
         state.error = false;
         state.tempImages = {
@@ -181,10 +180,9 @@ export const generateImage = createAsyncThunk(
       );
       const data = response.data;
 
-      const blob = new Blob([data], { type: "image/jpeg" });
+      const blob = new Blob([data], { type: "image/png" });
       const url = URL.createObjectURL(blob);
 
-      console.log(url);
       return url;
     } catch (error) {
       return rejectWithValue(error);

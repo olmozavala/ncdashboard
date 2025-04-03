@@ -53,7 +53,7 @@ const MapComponent = ({ image, lat, lon }: MapProps) => {
 
   // Update image source when props change
   useEffect(() => {
-    if (imageLayerRef.current) {
+    if (imageLayerRef.current && image) {
       const imageExtent = [lon[0], lat[0], lon[1], lat[1]];
       const newSource = new ImageStatic({
         url: image,
@@ -62,9 +62,6 @@ const MapComponent = ({ image, lat, lon }: MapProps) => {
       });
       imageLayerRef.current.setSource(newSource);
 
-      // Optional: recenter the view to new image
-      const center = [(lon[0] + lon[1]) / 2, (lat[0] + lat[1]) / 2];
-      mapInstanceRef.current?.getView().setCenter(center);
     }
   }, [image, lat, lon]); // Only update the layer
 
