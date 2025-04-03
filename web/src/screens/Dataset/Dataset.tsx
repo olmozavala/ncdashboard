@@ -1,10 +1,7 @@
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppDispatch, RootState } from "../../redux/store";
-import { useEffect, useRef, useState } from "react";
-import { MapContainer, useMap, TileLayer} from "react-leaflet";
-
-import "leaflet/dist/leaflet.css";
+import { OlHTMLAttributes, useEffect, useRef, useState } from "react";
 
 import {
   fetchDatasetInfo,
@@ -17,19 +14,7 @@ import { Button, CheckBox } from "../../components";
 import { listSessions } from "../../redux/slices/SessionSlice";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { datasetVariableType } from "../../models";
-
-const FitBoundsComponent = ({ bounds }:{bounds:any}) => {
-  const map = useMap();
-
-  // Automatically fit the map to the bounds when the component is loaded
-  useEffect(() => {
-    if (bounds) {
-      map.fitBounds(bounds);
-    }
-  }, [map, bounds]);
-
-  return null;
-};
+import Map from "../../components/Map/Map";
 
 const DatasetScreen = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -52,7 +37,7 @@ const DatasetScreen = () => {
   const [depthIndex, setDepthIndex] = useState(0);
   // const [mapDimensions, setMapDimensions] = useState({ width: 0, height: 0 });
 
-  const imageRef = useRef<HTMLImageElement>(null);
+  // const imageRef = useRef<HTMLImageElement>(null);
 
   const selectedDataset = available_datasets.find(
     (dataset) => dataset.id === datasetId
@@ -92,17 +77,7 @@ const DatasetScreen = () => {
     setVariables(temp);
   };
 
-  const resizeMap = () => {
-    if (imageRef.current) {
-      const height = imageRef.current.height;
-      const width = imageRef.current.width;
-      // setMapDimensions({ width, height }); // TODO: This value is always 0, 0; fix it
-      // map.fitBounds([
-        // [tempLat[0], tempLat[tempLat.length - 1]],
-        // [tempLon[0], tempLon[tempLon.length - 1]],
-      // ])
-    }
-  };
+  const resizeMap = () => {};
 
   useEffect(() => {
     if (available_datasets.length === 0) {
@@ -145,7 +120,6 @@ const DatasetScreen = () => {
   useEffect(() => {
     resizeMap();
   }, [tempImage]);
-
 
   return (
     <div className="text-nc-500 p-4 w-full">
@@ -198,44 +172,22 @@ const DatasetScreen = () => {
           </div>
         </Panel>
         <PanelResizeHandle className="border" />
-        <Panel defaultSize={50}>
-          {tempImage && (
-            <img
-              style={{ opacity: 0.5, position: "absolute", zIndex: 100 }}
-              src={tempImage}
-              alt="plot"
-              ref={imageRef}
-            />
-          )}
+        <Panel defaultSize={50} maxSize={80}>
           <div
             style={{
               zIndex: 90,
               width: "100%",
               height: "100%",
-              position: "absolute",
+              // position: "absolute",
             }}
           >
-          {tempLat.length > 0 && tempLon.length > 0 && (
-            <MapContainer
-              zoom={5}
-              scrollWheelZoom={false}
-              center={
-                [tempLat[0] - ((tempLat[0] - tempLat[tempLat.length - 1]) / 2), tempLon[0] - ((tempLon[0] - tempLon[tempLon.length - 1]) / 2)]
-              }
-              style={{ height: 500, width: 700 }} // TODO: Make this responsive
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            {tempLat.length > 0 && tempLon.length > 0 && (
+              <Map
+                image={tempImage}
+                lat={[tempLat[0], tempLat[tempLat.length - 1]]}
+                lon={[tempLon[0], tempLon[tempLon.length - 1]]}
               />
-              {/* <FitBoundsComponent
-                bounds={[
-                  [tempLat[0], tempLat[tempLat.length - 1]],
-                  [tempLon[0], tempLon[tempLon.length - 1]],
-                ]}
-              /> */}
-            </MapContainer>
-          )}
+            )}
           </div>
         </Panel>
       </PanelGroup>
