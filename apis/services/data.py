@@ -6,9 +6,14 @@ from utils.constants import DATA_DIR
 from models import Dataset
 from services.db import nc_db
 
+from utils.logger import Logger
+
+logger = Logger(__name__)
+
 
 def get_available_datasets():
     data_files = os.listdir(DATA_DIR)
+    logger.info(f"Found {len(data_files)} files in {DATA_DIR}")
     for file in data_files:
         if not file.endswith(".nc"):
             continue
