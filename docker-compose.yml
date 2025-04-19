@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        COMMIT_HASH: ${COMMIT_HASH:-dev}
+    ports:
+      - "3030:3030"
+    volumes:
+      - ./test_data:/app/test_data
+    networks:
+      - app-network
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    command:
+      - "start"
+      - "--all"
+      - "--config"
+      - "/etc/ngrok.yml"
+    volumes:
+      - ./ngrok.yml:/etc/ngrok.yml
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
