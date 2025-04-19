@@ -1,7 +1,7 @@
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppDispatch, RootState } from "../../redux/store";
-import { OlHTMLAttributes, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   fetchDatasetInfo,
@@ -25,8 +25,8 @@ const DatasetScreen = () => {
     available_datasets,
     loading,
     activeDataset,
-    error,
-    errorMessage,
+    // error,
+    // errorMessage,
     tempImages,
     tempImage,
     tempLat,
@@ -41,9 +41,9 @@ const DatasetScreen = () => {
     (dataset) => dataset.id === datasetId
   );
 
-  let dataset_sessions = sessions.filter(
-    (session) => session.dataset_id === datasetId
-  );
+  // let dataset_sessions = sessions.filter(
+  //   (session) => session.dataset_id === datasetId
+  // );
 
   const plotAll = async () => {
     const datasetName = selectedDataset?.name;
@@ -110,9 +110,9 @@ const DatasetScreen = () => {
   useEffect(() => {
     if (sessions.length === 0) {
       dispatch(listSessions()).then(() => {
-        dataset_sessions = sessions.filter(
-          (session) => session.dataset_id === datasetId
-        );
+        // dataset_sessions = sessions.filter(
+          // (session) => session.dataset_id === datasetId
+        // );
       });
     }
 

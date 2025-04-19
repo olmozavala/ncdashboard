@@ -7,7 +7,7 @@ interface RenderNodeProps {
   isConnectable?: boolean;
 }
 
-function RenderNode({ data, isConnectable }: RenderNodeProps) {
+function RenderNode({ isConnectable }: RenderNodeProps) {
   return (
     <div className="react-flow__node-default" style={{ padding: 10 }}>
       <h2>Render</h2>

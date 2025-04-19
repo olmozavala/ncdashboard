@@ -1,4 +1,3 @@
-import { NodeTypes } from "@xyflow/react";
 import customNodes from "../components/nodes";
 
 // ErrorType enum
