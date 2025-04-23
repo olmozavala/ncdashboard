@@ -1,46 +1,141 @@
-# Getting Started with Create React App
+# NCDashboard Web Application
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A modern, responsive web application built with React, TypeScript, and Redux for state management. This application serves as the frontend interface for the NCDashboard system.
 
-## Available Scripts
+## 🚀 Tech Stack
 
-In the project directory, you can run:
+- **Frontend Framework**: React 18
+- **Language**: TypeScript
+- **State Management**: Redux Toolkit
+- **Routing**: React Router v7
+- **Styling**: Tailwind CSS
+- **Build Tool**: Vite
+- **Maps Integration**: OpenLayers
+- **UI Components**: React Resizable Panels, XYFlow React
+- **HTTP Client**: Axios
 
-### `npm start`
+## 📁 Project Structure
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+```
+src/
+├── components/     # Reusable UI components
+├── screens/        # Page-level components
+├── navigation/     # Routing configuration
+├── redux/         # State management
+│   ├── store.ts
+│   ├── slices/    # Redux slices for different features
+├── models/        # TypeScript interfaces and types
+├── App.tsx        # Root application component
+└── index.tsx      # Application entry point
+```
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+## 🛠️ Development Setup
 
-### `npm test`
+1. **Prerequisites**
+   - Node.js (LTS version)
+   - Yarn package manager
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+2. **Installation**
+   ```bash
+   yarn install
+   ```
 
-### `npm run build`
+3. **Development Server**
+   ```bash
+   yarn start
+   ```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+4. **Build for Production**
+   ```bash
+   yarn build
+   ```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+5. **Linting**
+   ```bash
+   yarn lint
+   ```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## 🏗️ Architecture & Best Practices
 
-### `npm run eject`
+### State Management
+- Uses Redux Toolkit for predictable state management
+- Organized into feature-based slices
+- Implements TypeScript for type safety
+- Follows the Redux best practices for actions and reducers
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+### Component Structure
+- Follows atomic design principles
+- Components are organized by feature and reusability
+- Implements proper TypeScript interfaces for props
+- Uses functional components with hooks
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### Code Quality
+- ESLint configuration for code quality
+- TypeScript for type safety
+- Consistent code formatting
+- Comprehensive documentation
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+### Performance
+- Code splitting with React Router
+- Optimized builds with Vite
+- Efficient state updates with Redux
+- Responsive design with Tailwind CSS
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+## 🤝 Contributing
 
-## Learn More
+1. **Fork the repository**
+2. **Create a feature branch**
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+3. **Commit your changes**
+   ```bash
+   git commit -m 'Add some feature'
+   ```
+4. **Push to the branch**
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+5. **Open a Pull Request**
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### Code Style Guidelines
+- Follow TypeScript best practices
+- Use functional components with hooks
+- Implement proper error handling
+- Write meaningful commit messages
+- Include JSDoc comments for complex functions
+- Keep components small and focused
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### Testing
+- Write unit tests for critical components
+- Test Redux actions and reducers
+- Ensure proper error handling
+- Test edge cases
+
+## 📝 Documentation
+
+- Components should include JSDoc comments
+- Complex functions should be documented
+- Update README when adding new features
+- Keep documentation up-to-date with code changes
+
+## 🔒 Security
+
+- Follow React security best practices
+- Implement proper authentication
+- Sanitize user inputs
+- Use environment variables for sensitive data
+
+## 📦 Dependencies
+
+Key dependencies are managed in `package.json`. Use `yarn` for package management to ensure consistent installations.
+
+## 🚨 Troubleshooting
+
+Common issues and solutions:
+1. **Build failures**: Clear node_modules and reinstall dependencies
+2. **Type errors**: Ensure TypeScript types are properly defined
+3. **State management issues**: Check Redux DevTools for state updates
+
+
+For more detailed information about specific features or components, please refer to the respective documentation in the codebase.

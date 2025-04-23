@@ -1,3 +1,21 @@
+/**
+ * Footer Component
+ * 
+ * A simple footer component that displays copyright information and
+ * a link to the current build version on GitHub.
+ * 
+ * @component
+ * @example
+ * ```tsx
+ * <Footer />
+ * ```
+ */
+
+/**
+ * Footer Component
+ * 
+ * @returns {JSX.Element} A footer element with copyright and version information
+ */
 const Footer = () => {
   return (
     <div>

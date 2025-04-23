@@ -1,3 +1,17 @@
+/**
+ * @module components
+ * @description Central export file for all UI components in the application
+ * 
+ * This file serves as a single entry point for all UI components, providing:
+ * - Simplified imports for components throughout the application
+ * - Clear visibility of available components
+ * - Easy component discovery and usage
+ * - Maintainable component organization
+ * 
+ * Usage:
+ * import { Button, Toast, Map } from '../components';
+ */
+
 export {default as Button} from './Button/Button';
 export {default as SideBar} from './SideBar/SideBar';
 export {default as Footer} from './Footer/Footer';

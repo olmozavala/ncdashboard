@@ -1,31 +1,83 @@
+###############################################################################
+# docker-compose.yml                                                          #
+#                                                                             #
+# Deployment: FastAPI backend + Vite frontend + public access via ngrok       #
+#                                                                             #
+# This Compose file builds and runs a multi-container app with:               #
+#   1. backend – FastAPI server with prebuilt Vite frontend (Dockerfile)      #
+#   2. ngrok   – exposes the backend to the public Internet                   #
+#                                                                             #
+# --------------------------- Build and Deploy ------------------------------ #
+# To build the full stack with:                                               #
+#   COMMIT_HASH=$(git rev-parse --short HEAD) docker compose build            #
+#                                                                             #
+# The Dockerfile auto-detects the current commit hash using git metadata      #
+# and injects it into the Vite frontend (as VITE_COMMIT_HASH).                #
+#                                                                             #
+# Then, start the app with:                                                   #
+#   docker compose up                                                         #
+#                                                                             #
+# After startup, ngrok will print a public URL you can use to test or share.  #
+#                                                                             #
+###############################################################################
+
 version: "3.8"
 
 services:
-  backend:
+  #############################################################################
+  # Back‑end service                                                          #
+  #############################################################################
+  ncdashboard:
     build:
+      # Path containing the Dockerfile
       context: .
       dockerfile: Dockerfile
+
+      # Forward the commit hash to the Docker build
+      # Usage: `docker compose build --build-arg COMMIT_HASH=$(git rev-parse HEAD)`
       args:
         COMMIT_HASH: ${COMMIT_HASH:-dev}
+
+    # Map container port 3030 (Uvicorn) to host port 3030
     ports:
       - "3030:3030"
+
+    # Mount test data read‑write for local experimentation
     volumes:
       - ./test_data:/app/test_data
+
+    # Attach to the shared bridge network
     networks:
       - app-network
 
+  #############################################################################
+  # Ngrok tunneling service                                                   #
+  #############################################################################
   ngrok:
     image: ngrok/ngrok:latest
+
+    # ngrok command:
+    #   start       — run in multi‑tunnel mode
+    #   --all       — expose every tunnel defined in /etc/ngrok.yml
+    #   --config    — path to configuration file (mounted below)
     command:
       - "start"
       - "--all"
       - "--config"
       - "/etc/ngrok.yml"
+
+    # Bind the local ngrok configuration file into the container
     volumes:
       - ./ngrok.yml:/etc/ngrok.yml
+
+    # Place ngrok on the same network so it can reach the backend via service name
     networks:
       - app-network
-
+    depends_on:
+      - ncdashboard
+###############################################################################
+# Network definition                                                          #
+###############################################################################
 networks:
   app-network:
-    driver: bridge
+    driver: bridge      # Default bridge driver; isolates traffic to this compose app

@@ -1,3 +1,21 @@
+/**
+ * Canvas Component
+ * 
+ * A React Flow-based canvas component that provides a visual interface for
+ * creating and manipulating data processing workflows. It supports node
+ * connections, edge reconnections, and real-time updates.
+ * 
+ * @component
+ * @example
+ * ```tsx
+ * <Canvas
+ *   nodes={initialNodes}
+ *   edges={initialEdges}
+ *   onUpdate={(nodes, edges) => console.log(nodes, edges)}
+ * />
+ * ```
+ */
+
 import {
   addEdge,
   // applyEdgeChanges,
@@ -14,16 +32,33 @@ import customNodes from "../nodes";
 import { useCallback, useEffect, useRef } from "react";
 import { NC_Node } from "../../models";
 
+/**
+ * Props interface for the Canvas component
+ * 
+ * @interface CanvasProps
+ * @property {NC_Node} nodes - Array of nodes to display on the canvas
+ * @property {Array<{id: string, source: string, target: string}>} edges - Array of edges connecting nodes
+ * @property {(nodes: NC_Node, edges: CanvasProps["edges"]) => void} onUpdate - Callback function when canvas state changes
+ */
 interface CanvasProps {
+  /** Array of nodes to display on the canvas */
   nodes: NC_Node;
+  /** Array of edges connecting nodes */
   edges: {
     id: string;
     source: string;
     target: string;
   }[];
+  /** Callback function when canvas state changes */
   onUpdate: (n: NC_Node, e: CanvasProps["edges"]) => void;
 }
 
+/**
+ * Canvas Component
+ * 
+ * @param {CanvasProps} props - The props for the canvas component
+ * @returns {JSX.Element} A React Flow canvas with nodes and edges
+ */
 const Canvas = ({
   edges: initialEdges,
   nodes: initialNodes,

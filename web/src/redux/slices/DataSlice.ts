@@ -3,6 +3,41 @@ import type { PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
 import { Dataset, DatasetInfo } from "../../models";
 
+/**
+ * @module DataSlice
+ * @description Manages the application's dataset and visualization data state
+ * 
+ * This slice handles:
+ * - Dataset fetching and management
+ * - Visualization data processing
+ * - Error handling and loading states
+ * - Data transformation and normalization
+ * 
+ * The slice maintains:
+ * - Available datasets list
+ * - Current dataset details
+ * - Visualization data
+ * - Loading and error states
+ * 
+ * @see store - Main Redux store configuration
+ * @see models/Dataset - Dataset data structure
+ * @see models/DatasetInfo - Dataset information structure
+ */
+
+/**
+ * Data state interface
+ * 
+ * Defines the structure of the data state:
+ * - available_datasets: List of all available datasets
+ * - loading: Loading state indicator
+ * - error: Error state indicator
+ * - errorMessage: Error message content
+ * - activeDataset: Currently selected dataset and its info
+ * - tempImage: Temporary image storage
+ * - tempImages: Map of temporary images by key
+ * - tempLat: Temporary latitude data
+ * - tempLon: Temporary longitude data
+ */
 export interface DataState {
   available_datasets: Dataset[];
   loading: boolean;
@@ -19,6 +54,15 @@ export interface DataState {
   tempLon: number[]; // TODO: save lat and lon with image
 }
 
+/**
+ * Initial state for the data slice
+ * 
+ * Sets up the default values for:
+ * - Empty dataset list
+ * - No active dataset
+ * - No loading or errors
+ * - Empty temporary storage
+ */
 const initialState: DataState = {
   available_datasets: [],
   error: false,
@@ -31,6 +75,16 @@ const initialState: DataState = {
   tempLon: [],
 };
 
+/**
+ * Data slice reducer
+ * 
+ * Manages state updates for:
+ * - Dataset fetching
+ * - Visualization data processing
+ * - Error handling
+ * - Loading states
+ * - Temporary data storage
+ */
 export const DataSlice = createSlice({
   name: "data",
   initialState,
@@ -124,6 +178,12 @@ export const DataSlice = createSlice({
   },
 });
 
+/**
+ * Async thunk for fetching available datasets
+ * 
+ * Makes an API call to retrieve the list of available datasets
+ * Updates the state with the fetched data or error information
+ */
 export const fetchDataSets = createAsyncThunk(
   "data/fetchDataSets",
   async (_, { rejectWithValue }) => {
@@ -139,6 +199,12 @@ export const fetchDataSets = createAsyncThunk(
   }
 );
 
+/**
+ * Async thunk for fetching dataset information
+ * 
+ * Retrieves detailed information about a specific dataset
+ * Updates the active dataset state with the fetched info
+ */
 export const fetchDatasetInfo = createAsyncThunk(
   "data/fetchDatasetInfo",
   async (datasetId: string, { rejectWithValue }) => {
@@ -159,6 +225,14 @@ export const fetchDatasetInfo = createAsyncThunk(
   }
 );
 
+/**
+ * Async thunk for generating visualization images
+ * 
+ * Creates visualization images based on dataset parameters:
+ * - Variable selection
+ * - Time index
+ * - Depth index
+ */
 export const generateImage = createAsyncThunk(
   "data/generateImage",
   async (
@@ -190,6 +264,12 @@ export const generateImage = createAsyncThunk(
   }
 );
 
+/**
+ * Async thunk for retrieving latitude and longitude data
+ * 
+ * Fetches geographical coordinates for a specific dataset
+ * Used for spatial visualization and mapping
+ */
 export const getLatLon = createAsyncThunk(
   "data/getLatLon",
   async (
