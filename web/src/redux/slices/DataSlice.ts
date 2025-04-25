@@ -1,24 +1,24 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
-import { Dataset, DatasetInfo } from "../../models";
+import { Dataset, DatasetInfo, datasetVariableType, Plot } from "../../models";
 
 /**
  * @module DataSlice
  * @description Manages the application's dataset and visualization data state
- * 
+ *
  * This slice handles:
  * - Dataset fetching and management
  * - Visualization data processing
  * - Error handling and loading states
  * - Data transformation and normalization
- * 
+ *
  * The slice maintains:
  * - Available datasets list
  * - Current dataset details
  * - Visualization data
  * - Loading and error states
- * 
+ *
  * @see store - Main Redux store configuration
  * @see models/Dataset - Dataset data structure
  * @see models/DatasetInfo - Dataset information structure
@@ -26,7 +26,7 @@ import { Dataset, DatasetInfo } from "../../models";
 
 /**
  * Data state interface
- * 
+ *
  * Defines the structure of the data state:
  * - available_datasets: List of all available datasets
  * - loading: Loading state indicator
@@ -43,20 +43,21 @@ export interface DataState {
   loading: boolean;
   error: boolean;
   errorMessage: string;
-  activeDataset: {
-    dataset: Dataset;
-    info: DatasetInfo;
-  } | null;
+  // activeDataset: {
+  //   dataset: Dataset;
+  //   info: DatasetInfo;
+  // } | null;
+  plots: { [key: string]: Plot };
   // TODO: Remove tempImage
-  tempImage: any;
-  tempImages: { [key: string]: any };
-  tempLat: number[]; // TODO: save lat and lon with image
-  tempLon: number[]; // TODO: save lat and lon with image
+  // tempImage: any;
+  // tempImages: { [key: string]: any };
+  // tempLat: number[]; // TODO: save lat and lon with image
+  // tempLon: number[]; // TODO: save lat and lon with image
 }
 
 /**
  * Initial state for the data slice
- * 
+ *
  * Sets up the default values for:
  * - Empty dataset list
  * - No active dataset
@@ -68,16 +69,13 @@ const initialState: DataState = {
   error: false,
   loading: false,
   errorMessage: "",
-  activeDataset: null,
-  tempImages: {},
-  tempImage: null,
-  tempLat: [],
-  tempLon: [],
+  // activeDataset: null,
+  plots: {},
 };
 
 /**
  * Data slice reducer
- * 
+ *
  * Manages state updates for:
  * - Dataset fetching
  * - Visualization data processing
@@ -89,15 +87,41 @@ export const DataSlice = createSlice({
   name: "data",
   initialState,
   reducers: {
-    setActiveDataset: (
+    updateVariable: (
       state,
-      action: PayloadAction<DataState["activeDataset"]>
+      action: PayloadAction<{
+        dataset: string;
+        variable: string;
+        dataToUpdate: datasetVariableType;
+      }>
     ) => {
-      state.activeDataset = action.payload;
+      const datasetToUpdate = state.available_datasets.find(
+        (d) => d.id === action.payload.dataset
+      );
+
+      if (datasetToUpdate) {
+        const variableToUpdate =
+          datasetToUpdate?.info?.variables_info[action.payload.variable];
+        if (variableToUpdate) {
+          variableToUpdate.checked = action.payload.dataToUpdate.checked;
+          variableToUpdate.dimensions = action.payload.dataToUpdate.dimensions;
+        }
+      }
     },
-    setImage: (state, action: PayloadAction<any>) => {
-      state.tempImage = action.payload;
-    }
+    // setImage: (state, action: PayloadAction<any>) => {
+    // state.tempImage = action.payload;
+    // }
+
+    setPlotGenerationProgess: (state, action: PayloadAction<{
+      variable: string;
+      progress: number;
+    }>) => {
+      const plot = state.plots[action.payload.variable];
+      if (plot && action.payload.progress > plot.progress) {
+        plot.loading = true;
+        plot.progress = action.payload.progress;        
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -127,12 +151,45 @@ export const DataSlice = createSlice({
           state,
           action: PayloadAction<DatasetInfo, string, { arg: string }>
         ) => {
-          state.activeDataset = {
-            dataset: state.available_datasets.find(
-              (d) => d.id === action.meta.arg
-            ) as Dataset,
-            info: action.payload,
+          const datasetToUpdate = state.available_datasets.find(
+            (d) => d.id === action.meta.arg
+          );
+
+          /** 
+          Here I am modifying the variable info to hold the state of the UI as well, for that I am using @see datasetVariableType.
+
+          Original data structure:
+          variables_info = {
+            salinity: ['time', 'depth', 'lat', 'lon'],
+            surf_el: ['time', 'lat', 'lon'],
+            tau: ['time'],
+            water_temp: ['time', 'depth', 'lat', 'lon'],
+            water_u: ['time', 'depth', 'lat', 'lon'],
+            water_v: ['time', 'depth', 'lat', 'lon'],
           };
+
+          Modified data structure:
+          variables_info = {
+            salinity: {
+              checked: true,
+              dimensions: ['time', 'depth', 'lat', 'lon'],
+            },
+
+          */
+
+          const tempInfo = action.payload;
+          tempInfo.variables_info;
+
+          for (const key in tempInfo.variables_info) {
+            tempInfo.variables_info[key] = {
+              checked: false,
+              dimensions: tempInfo.variables_info[key] as unknown as string[],
+            };
+          }
+
+          if (datasetToUpdate) {
+            datasetToUpdate.info = tempInfo;
+          }
           state.loading = false;
           state.error = false;
         }
@@ -142,31 +199,12 @@ export const DataSlice = createSlice({
         state.loading = false;
         state.errorMessage = "Failed to fetch dataset info";
       })
-      .addCase(generateImage.pending, (state) => {
-        state.loading = true;
-        state.error = false;
-        state.errorMessage = "";
-      })
-      .addCase(generateImage.fulfilled, (state, action) => {
-        state.loading = false;
-        state.error = false;
-        state.tempImages = {
-          ...state.tempImages,
-          [action.meta.arg.variable + action.meta.arg.depth_index]: action.payload}
-      })
-      .addCase(generateImage.rejected, (state) => {
-        state.error = true;
-        state.loading = false;
-        state.errorMessage = "Failed to generate image";
-      })
       .addCase(getLatLon.pending, (state) => {
         state.loading = true;
         state.error = false;
         state.errorMessage = "";
       })
-      .addCase(getLatLon.fulfilled, (state, action) => {
-        state.tempLat = action.payload.lat;
-        state.tempLon = action.payload.lon;
+      .addCase(getLatLon.fulfilled, (state) => {
         state.loading = false;
         state.error = false;
       })
@@ -174,13 +212,41 @@ export const DataSlice = createSlice({
         state.error = true;
         state.loading = false;
         state.errorMessage = "Failed to fetch lat lon";
+      })
+      .addCase(generatePlot.pending, (state, action) => {
+        state.error = false;
+        state.errorMessage = "";
+        if (action.meta.arg.variable in state.plots === false) {
+          state.plots[action.meta.arg.variable] = {
+            dataset: action.meta.arg.dataset,
+            variable: action.meta.arg.variable,
+            loading: true,
+            error: false,
+            images: [],
+            progress: 0,
+          };
+        } else {
+          state.plots[action.meta.arg.variable].loading = true;
+        }
+      })
+      .addCase(generatePlot.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = false;
+        if (action.payload && action.payload.images) {
+          state.plots[action.meta.arg.variable] = action.payload;
+        }
+      })
+      .addCase(generatePlot.rejected, (state) => {
+        state.error = true;
+        state.loading = false;
+        state.errorMessage = "Failed to generate plot";
       });
   },
 });
 
 /**
  * Async thunk for fetching available datasets
- * 
+ *
  * Makes an API call to retrieve the list of available datasets
  * Updates the state with the fetched data or error information
  */
@@ -201,7 +267,7 @@ export const fetchDataSets = createAsyncThunk(
 
 /**
  * Async thunk for fetching dataset information
- * 
+ *
  * Retrieves detailed information about a specific dataset
  * Updates the active dataset state with the fetched info
  */
@@ -224,49 +290,9 @@ export const fetchDatasetInfo = createAsyncThunk(
     }
   }
 );
-
-/**
- * Async thunk for generating visualization images
- * 
- * Creates visualization images based on dataset parameters:
- * - Variable selection
- * - Time index
- * - Depth index
- */
-export const generateImage = createAsyncThunk(
-  "data/generateImage",
-  async (
-    params: {
-      dataset: string;
-      variable: string;
-      time_index: number;
-      depth_index: number;
-    },
-    { rejectWithValue }
-  ) => {
-    try {
-      const response = await axios.post(
-        import.meta.env.VITE_BACKEND_API_URL + `/image/generate`,
-        params,
-        {
-          responseType: "blob",
-        }
-      );
-      const data = response.data;
-
-      const blob = new Blob([data], { type: "image/png" });
-      const url = URL.createObjectURL(blob);
-
-      return url;
-    } catch (error) {
-      return rejectWithValue(error);
-    }
-  }
-);
-
 /**
  * Async thunk for retrieving latitude and longitude data
- * 
+ *
  * Fetches geographical coordinates for a specific dataset
  * Used for spatial visualization and mapping
  */
@@ -295,6 +321,93 @@ export const getLatLon = createAsyncThunk(
   }
 );
 
+async function generateImageHelper(params: {
+  dataset: string;
+  variable: string;
+  time_index: number;
+  depth_index: number;
+}): Promise<string> {
+  try {
+    const response = await axios.post(
+      import.meta.env.VITE_BACKEND_API_URL + `/image/generate`,
+      params,
+      {
+        responseType: "blob",
+      }
+    );
+
+    const data = response.data;
+    const blob = new Blob([data], { type: "image/png" });
+    const url = URL.createObjectURL(blob);
+
+    return url;
+  } catch (error) {
+    console.error("Failed to generate image:", error);
+    throw error;
+  }
+}
+
+export const generatePlot = createAsyncThunk(
+  "data/generatePlot",
+  async (
+    params: {
+      dataset: string;
+      variable: string;
+      dimension: number;
+    },
+    { rejectWithValue, getState , dispatch}
+  ) => {
+    const state = getState() as { data: DataState };
+    const dataset = state.data.available_datasets.find(
+      (d) => d.id === params.dataset
+    );
+    if (dataset && dataset.info) {
+      try {
+        const depthCount = dataset.info.dims["depth"];
+        if (params.dimension === 4) {
+          let plot: Plot = {
+            dataset: dataset.id,
+            variable: params.variable,
+            loading: false,
+            error: false,
+            images: new Array(depthCount).fill(undefined),
+            progress: 100,
+          };
+          if (dataset && depthCount !== undefined) {
+            const promises: Promise<string>[] = [];
+
+            for (let i = 0; i < depthCount; i++) {
+              const promise = generateImageHelper({
+                dataset: dataset.name,
+                depth_index: i,
+                variable: params.variable,
+                time_index: 0,
+              }).then((image) => {
+                dispatch(setPlotGenerationProgess({
+                  progress: Math.floor(((i + 1) / depthCount) * 100),
+                  variable: params.variable,
+                }));
+                return image;
+              });
+
+              promises.push(promise);
+            }
+
+            plot.images = await Promise.all(promises);
+  
+          }
+          return plot;
+        }
+      } catch (error) {
+        console.error("Failed to generate plot:", error);
+        return rejectWithValue("Failed to generate plot");
+      }
+    } else {
+      rejectWithValue("Dataset not found");
+    }
+  }
+);
+
 // Action creators are generated for each case reducer function
-export const { setActiveDataset, setImage } = DataSlice.actions;
+export const { updateVariable ,setPlotGenerationProgess } = DataSlice.actions;
 export default DataSlice.reducer;

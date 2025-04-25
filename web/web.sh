@@ -12,6 +12,8 @@ show_help() {
 
 PORT=3000  # Default port
 PORT_SPECIFIED=false
+VITE_COMMIT_HASH=$(git rev-parse --short HEAD)
+export VITE_COMMIT_HASH
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do

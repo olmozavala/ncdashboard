@@ -19,3 +19,4 @@ export {default as Toast} from './Toast/Toast';
 export {default as CheckBox} from './CheckBox/CheckBox';
 export {default as Canvas} from './Canvas/Canvas';
 export {default as Map} from './Map/Map'
+export {default as FourDPlot} from './FourDPlot/FourDPlot';

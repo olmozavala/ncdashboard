@@ -109,6 +109,8 @@ export interface Dataset {
   name: string;
   /** File system path to the dataset */
   path: string;
+  /** Optional description of the dataset */
+  info?: DatasetInfo;
 }
 
 /**
@@ -148,10 +150,12 @@ export type DatasetInfo = {
     /** NetCDF conventions used */
     Conventions: string;
   };
+  lat: number[];
+  lon: number[];
   /** Dictionary of dimension names and their sizes */
   dims: Record<string, number>;
   /** Dictionary of variable names and their dimension names */
-  variables_info: Record<string, string[]>;
+  variables_info: Record<string, datasetVariableType>;
 };
 
 /**
@@ -179,10 +183,37 @@ export type NC_Node = {
  * Used for managing variable selection and display.
  */
 export type datasetVariableType = {
-  /** Name of the variable */
-  variable: string;
   /** Whether the variable is selected/checked */
   checked: boolean;
   /** Array of dimension names for this variable */
   dimensions: string[];
-}[];
+};
+
+
+// export interface Plot {
+//   type: "1D" | "2D" | "3D" | "4D";
+//   variable: string;
+//   images: {
+//     [key: string]: {
+//       depth: number;
+//       time: number;
+//       image: string;
+//     }[];
+//   }[];
+//   depth: number;
+//   time: number;
+//   loading: boolean;
+//   error: boolean;
+//   lat: number[];
+//   lon: number[];
+//   dataset: string;
+// }
+
+export interface Plot {
+  dataset: string;
+  variable: string;
+  loading: boolean;
+  error: boolean;
+  images?: string[];
+  progress: number;
+}
