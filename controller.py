@@ -49,6 +49,7 @@ class NcDashboard:
                         dbc.Col(
                             [ 
                                 dbc.Button("Plot selected fields", id="but_plot_all", color="success", size='lg'),
+                                dbc.Button("Close all", id="but_close_all", color="danger", size='lg', className="ms-2"),
                                 dcc.Download(id="download-data"),
                                 dcc.Loading(
                                     id="loading-1",
@@ -245,6 +246,18 @@ class NcDashboard:
 
             print_tree(self.ncdash.tree_root)
             return patch, []
+
+        @self.app.callback(
+            Output("display_area", "children"),
+            Input("but_close_all", "n_clicks"),
+            State("display_area", "children"),
+            prevent_initial_call=True
+        )
+        def close_all_figures(n_clicks, prev_children):
+            if n_clicks:
+                self.ncdash.tree_root.children = []  # Clear all children from the tree
+                return []  # Return empty list to clear all figures
+            return prev_children
 
         self.app.clientside_callback(
             """
