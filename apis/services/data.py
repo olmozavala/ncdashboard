@@ -77,6 +77,8 @@ def get_dataset_info_by_id(dataset_id: str):
         "attrs": data.attrs,
         "dims": data.dims,
         "variables_info": var_info,
+        "lat": data["lat"].values.tolist(),
+        "lon": data["lon"].values.tolist(),
     }
 
 def get_dataset_lat_lon(dataset_id: str):
