@@ -214,6 +214,11 @@ export interface Plot {
   variable: string;
   loading: boolean;
   error: boolean;
-  images?: string[];
+  /**
+   * The key for the images will have depth and time in it 
+   * This make it easier to access the images
+   * e.g. images["depth_0_time_0"] = "image.png"
+   */
+  images?: {[key: string]: string};
   progress: number;
 }

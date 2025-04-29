@@ -150,8 +150,8 @@ const DatasetScreen = () => {
       <div className="grid grid-cols-3 gap-4">
       {datasetId && variables
         ? variables.map((v) => {
-            if (selectedDataset?.info?.variables_info[v].checked) {
-              return <FourDPlot variable={v} dataset={datasetId} key={v} />;
+            if (selectedDataset?.info?.variables_info[v].checked && selectedDataset?.info?.variables_info[v].dimensions.length === 4) {
+              return <FourDPlot variable={v} dataset={datasetId} key={v} height={500} width={500} />;
             }
           })
         : null}

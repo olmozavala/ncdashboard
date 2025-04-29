@@ -7,6 +7,8 @@ import { generatePlot } from "../../redux/slices/DataSlice";
 interface FourDPlotProps {
   variable: string;
   dataset: string;
+  height?: number;
+  width?: number;
 }
 
 const FourDPlot = (props: FourDPlotProps) => {
@@ -27,46 +29,30 @@ const FourDPlot = (props: FourDPlotProps) => {
     return <p>Loading dataset info...</p>;
   }
 
-  const [imageIndex, setImageIndex] = useState<number>(0);
+  const [depthIndex, setDepthIndex] = useState<number>(0);
+  const [timeIndex, setTimeIndex] = useState<number>(0);
   const plot = plots[props.variable];
 
   useEffect(() => {
-    if (!plot || !plot.images || plot.images.length === 0) {
+    const key = `depth_${depthIndex}_time_${timeIndex}`;
+    if (!plot || (plot && plot.images !== undefined && key in plot.images === false)) {
       dispatch(
         generatePlot({
           dataset: activeDataset.id,
           variable: props.variable,
           dimension: 4,
+          depthIndex: depthIndex,
+          timeIndex: timeIndex,
         })
       );
     }
-  }, [dispatch, activeDataset.name, props.variable]);
+  }, [dispatch, activeDataset.name, props.variable, depthIndex, timeIndex]);
 
   if (props.variable in plots === false) {
     return <p>{props.variable} not ready yet.</p>;
   }
 
-  const images = plots[props.variable].images;
-
-  if (plot.loading) {
-    return (
-      <div
-        style={{ zIndex: 90, width: "600px", height: "600px" }}
-        className="bg-gray-800"
-      >
-        <h3 className="text-xl align-center">{props.variable}</h3>
-        <div className="flex items-center justify-center align-middle h-full">
-          <div className="w-4 h-4 border-4 border-t-transparent border-nc-500 rounded-full animate-spin"></div>
-          <p className="ml-2">Loading {plot.progress} %</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!images || images.length === 0) {
-    return <p>Loading images for {props.variable}</p>;
-  }
-
+  const images = plot.images;
   const lat = [
     activeDataset.info.lat[0],
     activeDataset.info.lat[activeDataset.info.lat.length - 1],
@@ -75,23 +61,56 @@ const FourDPlot = (props: FourDPlotProps) => {
     activeDataset.info.lon[0],
     activeDataset.info.lon[activeDataset.info.lon.length - 1],
   ];
+
   return (
-    <div style={{ zIndex: 90, width: "600px", height: "600px" }}>
-      {images && images.length > 0 ? (
+    <div style={{ zIndex: 90, width: props.width || "600px", height: props.height || "600px" }}>
+      <p className="text-xl">{props.variable}</p>
+      {plot.loading && (
+        <div
+          style={{
+            zIndex: 90,
+            width: props.width || "600px",
+            height: props.height || "600px",
+            position: "absolute",
+            opacity: 0.7,
+          }}
+          className="bg-gray-800"
+        >
+          <div className="flex items-center justify-center align-middle h-full">
+            <div className="w-4 h-4 border-4 border-t-transparent border-nc-500 rounded-full animate-spin"></div>
+            <p className="ml-2">Loading ...</p>
+          </div>
+        </div>
+      )}
+      {images && (
         <>
-          <p className="text-xl">{props.variable}</p>
-          <Map image={images[imageIndex]} lat={lat} lon={lon} />
-          <label>Depth Index: </label>
+          <Map
+            image={images[`depth_${depthIndex}_time_${timeIndex}`]}
+            lat={lat}
+            lon={lon}
+          />
+          <label>Depth Index: {depthIndex}</label>
           <input
             type="range"
             min={0}
-            max={images.length - 1}
-            value={imageIndex}
-            onChange={(e) => setImageIndex(parseInt(e.target.value))}
+            max={activeDataset.info.dims["depth"] - 1}
+            value={depthIndex}
+            onChange={(e) => setDepthIndex(parseInt(e.target.value))}
             className="w-full"
+            disabled={plot.loading}
           />
+          <label>Time Index: {timeIndex}</label>
+          {activeDataset.info.dims["time"] - 1 > 0 ? <input
+            type="range"
+            min={0}
+            max={activeDataset.info.dims["time"] - 1}
+            value={timeIndex}
+            onChange={(e) => setTimeIndex(parseInt(e.target.value))}
+            className="w-full"
+            disabled={plot.loading}
+          /> : <span className="text-sm"> {" "} (Only one value of time index available)</span>}
         </>
-      ) : null}
+      )}
     </div>
   );
 };

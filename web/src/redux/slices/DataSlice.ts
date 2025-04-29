@@ -222,7 +222,7 @@ export const DataSlice = createSlice({
             variable: action.meta.arg.variable,
             loading: true,
             error: false,
-            images: [],
+            images: {},
             progress: 0,
           };
         } else {
@@ -322,7 +322,7 @@ export const getLatLon = createAsyncThunk(
 );
 
 async function generateImageHelper(params: {
-  dataset: string;
+  dataset_id: string;
   variable: string;
   time_index: number;
   depth_index: number;
@@ -354,8 +354,10 @@ export const generatePlot = createAsyncThunk(
       dataset: string;
       variable: string;
       dimension: number;
+      depthIndex: number;
+      timeIndex: number;
     },
-    { rejectWithValue, getState , dispatch}
+    { rejectWithValue, getState}
   ) => {
     const state = getState() as { data: DataState };
     const dataset = state.data.available_datasets.find(
@@ -365,38 +367,34 @@ export const generatePlot = createAsyncThunk(
       try {
         const depthCount = dataset.info.dims["depth"];
         if (params.dimension === 4) {
-          let plot: Plot = {
-            dataset: dataset.id,
-            variable: params.variable,
-            loading: false,
-            error: false,
-            images: new Array(depthCount).fill(undefined),
-            progress: 100,
-          };
-          if (dataset && depthCount !== undefined) {
-            const promises: Promise<string>[] = [];
+          if (dataset && depthCount >= params.depthIndex  ) {
+            const image = await generateImageHelper({
+              dataset_id: dataset.id,
+              depth_index: params.depthIndex,
+              variable: params.variable,
+              time_index: params.timeIndex,
+            });
 
-            for (let i = 0; i < depthCount; i++) {
-              const promise = generateImageHelper({
-                dataset: dataset.name,
-                depth_index: i,
-                variable: params.variable,
-                time_index: 0,
-              }).then((image) => {
-                dispatch(setPlotGenerationProgess({
-                  progress: Math.floor(((i + 1) / depthCount) * 100),
-                  variable: params.variable,
-                }));
-                return image;
-              });
+            const key = `depth_${params.depthIndex}_time_${params.timeIndex}`;
+            const existingPlot: Plot = state.data.plots[params.variable] || {
+              dataset: dataset.id,
+              variable: params.variable,
+              loading: true,
+              error: false,
+              images: {},
+              progress: 0,
+            };
 
-              promises.push(promise);
+            const images = {...existingPlot.images, [key]: image};
+
+            return {
+              ...existingPlot,
+              images: images,
+              loading: false,
+              error: false,
+              progress: 100,
             }
-
-            plot.images = await Promise.all(promises);
-  
           }
-          return plot;
         }
       } catch (error) {
         console.error("Failed to generate plot:", error);
