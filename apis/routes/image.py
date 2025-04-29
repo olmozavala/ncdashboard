@@ -14,7 +14,9 @@ import os
 from fastapi import APIRouter, Response, HTTPException
 from models import GenerateImageRequest, ErrorType
 from services.image import generate_image
+from services.db import nc_db
 from utils.constants import CACHE_DIR
+
 
 # Initialize the router with base URL and tags
 router = APIRouter()
@@ -52,9 +54,14 @@ async def generate_image_endpoint(params: GenerateImageRequest):
         HTTPException:
             - 500: If there's an error during image generation
     """
+    dataset = nc_db.get_dataset_by_id(params["dataset_id"])
+    if not dataset:
+        raise HTTPException(status_code=404, detail=ErrorType.DATASET_NOT_FOUND.value)
+    
     try:
+        # Generate the image using the provided parameters
         image_data = generate_image(
-            params["dataset"],
+            dataset["name"],
             params["time_index"],
             params["depth_index"],
             params["variable"],

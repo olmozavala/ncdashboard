@@ -17,7 +17,7 @@ class GenerateImageRequest(TypedDict):
         depth_index (int): Index of the depth dimension to use
         variable (str): The variable to visualize
     """
-    dataset: str
+    dataset_id: str
     time_index: int
     depth_index: int
     variable: str
