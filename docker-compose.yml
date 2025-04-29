@@ -75,9 +75,39 @@ services:
       - app-network
     depends_on:
       - ncdashboard
+
+  ollama:
+    image: ollama/ollama:latest
+    # expose Ollama’s HTTP endpoint (default 11434)
+    ports:
+      - "11434:11434"
+    # enable all GPUs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    command: serve
+    networks:
+      - app-network
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - ncdashboard
+      - ollama
+    networks:
+      - app-network
 ###############################################################################
 # Network definition                                                          #
 ###############################################################################
 networks:
   app-network:
     driver: bridge      # Default bridge driver; isolates traffic to this compose app
+  
