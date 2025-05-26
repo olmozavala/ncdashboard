@@ -90,6 +90,11 @@ services:
               count: all
               capabilities: [gpu]
     command: serve
+    volumes:
+      - /scratch/data_amk23j/ollama_cache:/root/.ollama/models
+    environment:
+      - OLLAMA_MODELS=/root/.ollama/models
+    restart: unless-stopped
     networks:
       - app-network
 
