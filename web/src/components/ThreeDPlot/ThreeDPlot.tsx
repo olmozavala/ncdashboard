@@ -2,7 +2,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { Map } from "..";
 import { AppDispatch, RootState } from "../../redux/store";
 import { useEffect, useState } from "react";
-import { generatePlot } from "../../redux/slices/DataSlice";
+import { generatePlot3D } from "../../redux/slices/DataSlice";
 
 interface FourDPlotProps {
   variable: string;
@@ -11,7 +11,7 @@ interface FourDPlotProps {
   width?: number;
 }
 
-const FourDPlot = (props: FourDPlotProps) => {
+const ThreeDPlot = (props: FourDPlotProps) => {
   const dispatch = useDispatch<AppDispatch>();
   const { plots, available_datasets } = useSelector(
     (state: RootState) => state.data
@@ -23,25 +23,24 @@ const FourDPlot = (props: FourDPlotProps) => {
 
   const [depthIndex, setDepthIndex] = useState<number>(0);
   const [timeIndex, setTimeIndex] = useState<number>(0);
-
   const plot = plots[props.variable];
 
   useEffect(() => {
-    const key = `depth_${depthIndex}_time_${timeIndex}`;
+    const key = `_time_${timeIndex}`;
     if (
       !plot ||
       (plot && plot.images !== undefined && key in plot.images === false)
     ) {
-      if (activeDataset)
+      if (activeDataset && activeDataset.info) {
         dispatch(
-          generatePlot({
+          generatePlot3D({
             dataset: activeDataset.id,
             variable: props.variable,
             dimension: 4,
-            depthIndex: depthIndex,
             timeIndex: timeIndex,
           })
         );
+      }
     }
   }, [dispatch, activeDataset, props.variable, depthIndex, timeIndex, plot]);
 
@@ -95,11 +94,7 @@ const FourDPlot = (props: FourDPlotProps) => {
       )}
       {images && (
         <>
-          <Map
-            image={images[`depth_${depthIndex}_time_${timeIndex}`]}
-            lat={lat}
-            lon={lon}
-          />
+          <Map image={images[`_time_${timeIndex}`]} lat={lat} lon={lon} />
           <label>Depth Index: {depthIndex}</label>
           <input
             type="range"
@@ -133,4 +128,4 @@ const FourDPlot = (props: FourDPlotProps) => {
   );
 };
 
-export default FourDPlot;
+export default ThreeDPlot;

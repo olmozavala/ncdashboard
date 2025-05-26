@@ -347,6 +347,31 @@ async function generateImageHelper(params: {
   }
 }
 
+async function generateImageHelper3D(params: {
+  dataset_id: string;
+  variable: string;
+  time_index: number;
+}): Promise<string> {
+  try {
+    const response = await axios.post(
+      import.meta.env.VITE_BACKEND_API_URL + `/image/generate/3d`,
+      params,
+      {
+        responseType: "blob",
+      }
+    );
+
+    const data = response.data;
+    const blob = new Blob([data], { type: "image/png" });
+    const url = URL.createObjectURL(blob);
+
+    return url;
+  } catch (error) {
+    console.error("Failed to generate image:", error);
+    throw error;
+  }
+}
+
 export const generatePlot = createAsyncThunk(
   "data/generatePlot",
   async (
@@ -405,6 +430,64 @@ export const generatePlot = createAsyncThunk(
     }
   }
 );
+
+
+export const generatePlot3D = createAsyncThunk(
+  "data/generatePlot",
+  async (
+    params: {
+      dataset: string;
+      variable: string;
+      dimension: number;
+      timeIndex: number;
+    },
+    { rejectWithValue, getState}
+  ) => {
+    const state = getState() as { data: DataState };
+    const dataset = state.data.available_datasets.find(
+      (d) => d.id === params.dataset
+    );
+    if (dataset && dataset.info) {
+      try {
+        if (params.dimension === 4) {
+          if (dataset   ) {
+            const image = await generateImageHelper3D({
+              dataset_id: dataset.id,
+              variable: params.variable,
+              time_index: params.timeIndex,
+            });
+
+            const key = `_time_${params.timeIndex}`;
+            const existingPlot: Plot = state.data.plots[params.variable] || {
+              dataset: dataset.id,
+              variable: params.variable,
+              loading: true,
+              error: false,
+              images: {},
+              progress: 0,
+            };
+
+            const images = {...existingPlot.images, [key]: image};
+
+            return {
+              ...existingPlot,
+              images: images,
+              loading: false,
+              error: false,
+              progress: 100,
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to generate plot:", error);
+        return rejectWithValue("Failed to generate plot");
+      }
+    } else {
+      rejectWithValue("Dataset not found");
+    }
+  }
+);
+
 
 // Action creators are generated for each case reducer function
 export const { updateVariable ,setPlotGenerationProgess } = DataSlice.actions;
