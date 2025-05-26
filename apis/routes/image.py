@@ -12,8 +12,8 @@ Routes:
 
 import os
 from fastapi import APIRouter, Response, HTTPException
-from models import GenerateImageRequest, ErrorType
-from services.image import generate_image
+from models import GenerateImageRequest, ErrorType, GenerateImage3DRequest
+from services.image import generate_image, generate_image_3D
 from services.db import nc_db
 from utils.constants import CACHE_DIR
 
@@ -97,4 +97,40 @@ async def get_image(dataset_id: str, image_id: str):
     with open(image_path, "rb") as image_file:
         image_data = image_file.read() 
         return Response(content=image_data, media_type="image/jpeg")
+    
+@router.post("/generate/3d")
+async def generate_3d_image_endpoint(params: GenerateImage3DRequest):
+    """
+    Generate a 3D image based on the provided parameters.
+    
+    Args:
+        params (GenerateImageRequest): The parameters for image generation including:
+            - dataset: The dataset ID
+            - time_index: The time index for the data
+            - depth_index: The depth index for the data
+            - variable: The variable to visualize
+            
+    Returns:
+        Response: The generated 3D image as a JPEG response
+        
+    Raises:
+        HTTPException:
+            - 500: If there's an error during image generation
+    """
+    dataset = nc_db.get_dataset_by_id(params["dataset_id"])
+    if not dataset:
+        raise HTTPException(status_code=404, detail=ErrorType.DATASET_NOT_FOUND.value)
+    
+    try:
+        # Generate the 3D image using the provided parameters
+        image_data = generate_image_3D(
+            dataset["name"],
+            params["time_index"],
+            params["variable"],
+        )
+        return Response(content=image_data, media_type="image/jpeg")
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail=ErrorType.INTERNAL_ERROR.value)
+
     

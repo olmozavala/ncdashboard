@@ -22,3 +22,17 @@ class GenerateImageRequest(TypedDict):
     depth_index: int
     variable: str
     
+class GenerateImage3DRequest(TypedDict):
+    """
+    Request payload for generating a 3D visualization image.
+    
+    Attributes:
+        dataset (str): ID of the dataset to visualize
+        time_index (int): Index of the time dimension to use
+        depth_index (int): Index of the depth dimension to use
+        variable (str): The variable to visualize
+        view (str): The view type for the 3D visualization
+    """
+    dataset_id: str
+    time_index: int
+    variable: str
