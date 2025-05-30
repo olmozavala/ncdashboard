@@ -8,6 +8,7 @@ It includes functions for coordinate extraction and data loading.
 import xarray as xr
 import plotly.graph_objects as go
 import numpy as np
+from typing import List
 
 def get_all_coords(data: xr.DataArray) -> tuple[xr.DataArray, xr.DataArray, xr.DataArray, xr.DataArray]:
     """
@@ -53,7 +54,7 @@ def get_all_coords(data: xr.DataArray) -> tuple[xr.DataArray, xr.DataArray, xr.D
 
     return times, depth, lats, lons
 
-def load_data() -> xr.Dataset:
+def load_data(paths:List[str]) -> xr.Dataset:
     """
     Load a sample dataset for testing and development.
     
@@ -64,7 +65,7 @@ def load_data() -> xr.Dataset:
         This is a development function and should be replaced with proper data loading
         in production code.
     """
-    return xr.open_dataset("../data/gom_t007.nc", decode_times=False)
+    return xr.open_mfdataset(paths, decode_times=False, engine='netcdf4')
 
 # Example usage (commented out)
 # data = load_data()

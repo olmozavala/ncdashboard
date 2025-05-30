@@ -12,8 +12,13 @@ Routes:
 
 import os
 from fastapi import APIRouter, Response, HTTPException
-from models import GenerateImageRequest, ErrorType, GenerateImage3DRequest
-from services.image import generate_image, generate_image_3D
+from models import (
+    GenerateImageRequest1D,
+    ErrorType,
+    GenerateImageRequest4D,
+    GenerateImageRequest3D,
+)
+from services.image import generate_image, generate_image_3D, generate_image_1d
 from services.db import nc_db
 from utils.constants import CACHE_DIR
 
@@ -24,32 +29,68 @@ BASE_URL = "/image"
 router.prefix = BASE_URL
 router.tags = [BASE_URL]
 
+
 # TODO: Remove this endpoint as it's deprecated
 @router.get("/")
 async def get_image():
     """
     Root endpoint for the image routes (deprecated).
-    
+
     Returns:
         dict: A simple response indicating the image route is active
     """
     return {"image": "image"}
 
-@router.post("/generate")
-async def generate_image_endpoint(params: GenerateImageRequest):
+
+@router.get("/cached_image/{dataset_id}/{image_id}")
+async def get_image(dataset_id: str, image_id: str):
+    """
+    Retrieve a cached image by its dataset ID and image ID.
+
+    Args:
+        dataset_id (str): The ID of the dataset
+        image_id (str): The ID of the cached image
+
+    Returns:
+        Response: The cached image as a JPEG response
+
+    Raises:
+        HTTPException:
+            - 404: If the requested image is not found in the cache
+    """
+    # Construct the path to the cached image
+    image_path = os.path.join(CACHE_DIR, dataset_id, f"{image_id}.jpeg")
+
+    if not os.path.exists(image_path):
+        raise HTTPException(status_code=404, detail=ErrorType.IMAGE_NOT_FOUND.value)
+
+    # Read and return the cached image
+    with open(image_path, "rb") as image_file:
+        image_data = image_file.read()
+        return Response(content=image_data, media_type="image/jpeg")
+
+
+@router.post("/generate/1d")
+async def generate_image_endpoint1d(params: GenerateImageRequest1D):
+    image_data = generate_image_1d(params)
+    return Response(content=image_data, media_type="image/jpeg")
+
+
+@router.post("/generate/4d")
+async def generate_image_endpoint(params: GenerateImageRequest4D):
     """
     Generate a new image based on the provided parameters.
-    
+
     Args:
         params (GenerateImageRequest): The parameters for image generation including:
             - dataset: The dataset ID
             - time_index: The time index for the data
             - depth_index: The depth index for the data
             - variable: The variable to visualize
-            
+
     Returns:
         Response: The generated image as a JPEG response
-        
+
     Raises:
         HTTPException:
             - 500: If there's an error during image generation
@@ -57,7 +98,7 @@ async def generate_image_endpoint(params: GenerateImageRequest):
     dataset = nc_db.get_dataset_by_id(params["dataset_id"])
     if not dataset:
         raise HTTPException(status_code=404, detail=ErrorType.DATASET_NOT_FOUND.value)
-    
+
     try:
         # Generate the image using the provided parameters
         image_data = generate_image(
@@ -71,48 +112,22 @@ async def generate_image_endpoint(params: GenerateImageRequest):
         print(e)
         raise HTTPException(status_code=500, detail=ErrorType.INTERNAL_ERROR.value)
 
-@router.get("/cached_image/{dataset_id}/{image_id}")
-async def get_image(dataset_id: str, image_id: str):
-    """
-    Retrieve a cached image by its dataset ID and image ID.
-    
-    Args:
-        dataset_id (str): The ID of the dataset
-        image_id (str): The ID of the cached image
-        
-    Returns:
-        Response: The cached image as a JPEG response
-        
-    Raises:
-        HTTPException:
-            - 404: If the requested image is not found in the cache
-    """
-    # Construct the path to the cached image
-    image_path = os.path.join(CACHE_DIR, dataset_id, f"{image_id}.jpeg")
-    
-    if not os.path.exists(image_path):
-        raise HTTPException(status_code=404, detail=ErrorType.IMAGE_NOT_FOUND.value)
-    
-    # Read and return the cached image
-    with open(image_path, "rb") as image_file:
-        image_data = image_file.read() 
-        return Response(content=image_data, media_type="image/jpeg")
-    
+
 @router.post("/generate/3d")
-async def generate_3d_image_endpoint(params: GenerateImage3DRequest):
+async def generate_3d_image_endpoint(params):
     """
     Generate a 3D image based on the provided parameters.
-    
+
     Args:
         params (GenerateImageRequest): The parameters for image generation including:
             - dataset: The dataset ID
             - time_index: The time index for the data
             - depth_index: The depth index for the data
             - variable: The variable to visualize
-            
+
     Returns:
         Response: The generated 3D image as a JPEG response
-        
+
     Raises:
         HTTPException:
             - 500: If there's an error during image generation
@@ -120,7 +135,7 @@ async def generate_3d_image_endpoint(params: GenerateImage3DRequest):
     dataset = nc_db.get_dataset_by_id(params["dataset_id"])
     if not dataset:
         raise HTTPException(status_code=404, detail=ErrorType.DATASET_NOT_FOUND.value)
-    
+
     try:
         # Generate the 3D image using the provided parameters
         image_data = generate_image_3D(
@@ -132,5 +147,3 @@ async def generate_3d_image_endpoint(params: GenerateImage3DRequest):
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail=ErrorType.INTERNAL_ERROR.value)
-
-    

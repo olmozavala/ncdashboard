@@ -8,7 +8,6 @@ and accessing geographical coordinates from datasets.
 
 import os
 from uuid import uuid4
-from datetime import datetime, timezone
 import xarray as xr
 from utils.constants import DATA_DIR
 from models import Dataset

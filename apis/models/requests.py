@@ -2,37 +2,27 @@
 Request Models Module
 
 This module defines the data models for API requests in the application.
-It provides type definitions for various request payloads.
+It provides type definitions for various request payloads using Pydantic models.
 """
 
-from typing import TypedDict
+from pydantic import BaseModel, Field
 
-class GenerateImageRequest(TypedDict):
+class GenerateImageRequest1D(BaseModel):
     """
     Request payload for generating a new visualization image.
     
     Attributes:
-        dataset (str): ID of the dataset to visualize
-        time_index (int): Index of the time dimension to use
-        depth_index (int): Index of the depth dimension to use
-        variable (str): The variable to visualize
+        dataset_id (str): ID of the dataset to visualize
     """
-    dataset_id: str
-    time_index: int
-    depth_index: int
-    variable: str
+    dataset_id: str = Field(..., description="ID of the dataset to visualize")
+    variable: str = Field(..., description="The variable to visualize")
+
+class GenerateImageRequest4D(GenerateImageRequest1D):
+    lat_var: str = Field(..., description="The latitude variable to visualize")
+    lon_var: str = Field(..., description="The longitude variable to visualize")
+    time_var: str = Field(..., description="The time variable to visualize")
     
-class GenerateImage3DRequest(TypedDict):
-    """
-    Request payload for generating a 3D visualization image.
+class GenerateImageRequest3D(GenerateImageRequest1D):
+    lat_var: str = Field(..., description="The latitude variable to visualize")
+    lon_var: str = Field(..., description="The longitude variable to visualize")
     
-    Attributes:
-        dataset (str): ID of the dataset to visualize
-        time_index (int): Index of the time dimension to use
-        depth_index (int): Index of the depth dimension to use
-        variable (str): The variable to visualize
-        view (str): The view type for the 3D visualization
-    """
-    dataset_id: str
-    time_index: int
-    variable: str
