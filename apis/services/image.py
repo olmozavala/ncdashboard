@@ -72,11 +72,13 @@ def generate_image(params: GenerateImageRequest4D):
         - Clean layout with no axes or margins
     """
     # Load dataset if not provided
-    dataset = params.dataset_id
-    data = xr.open_dataset(os.path.join(DATA_DIR, dataset), decode_times=False)
-
+    dataset = nc_db.get_dataset_by_id(params.dataset_id)
+    if not dataset:
+        raise ValueError(f"Dataset with ID {params.dataset_id} not found.")
+    data = load_data([os.path.join(DATA_DIR, dataset["name"])])
+    data_to_visualize = data[params.variable]
     # Extract data for the specified indices
-    z_data = data[params.variable][time_index, depth_index, :, :]
+    z_data = data_to_visualize[params.time_index, params.depth_index, :, :]
     lats = data[params.lat_var]
     lons = data[params.lon_var]
 

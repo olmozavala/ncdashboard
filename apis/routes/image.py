@@ -30,18 +30,6 @@ router.prefix = BASE_URL
 router.tags = [BASE_URL]
 
 
-# TODO: Remove this endpoint as it's deprecated
-@router.get("/")
-async def get_image():
-    """
-    Root endpoint for the image routes (deprecated).
-
-    Returns:
-        dict: A simple response indicating the image route is active
-    """
-    return {"image": "image"}
-
-
 @router.get("/cached_image/{dataset_id}/{image_id}")
 async def get_image(dataset_id: str, image_id: str):
     """
@@ -95,18 +83,13 @@ async def generate_image_endpoint(params: GenerateImageRequest4D):
         HTTPException:
             - 500: If there's an error during image generation
     """
-    dataset = nc_db.get_dataset_by_id(params["dataset_id"])
+    dataset = nc_db.get_dataset_by_id(params.dataset_id)
     if not dataset:
         raise HTTPException(status_code=404, detail=ErrorType.DATASET_NOT_FOUND.value)
 
     try:
         # Generate the image using the provided parameters
-        image_data = generate_image(
-            dataset["name"],
-            params["time_index"],
-            params["depth_index"],
-            params["variable"],
-        )
+        image_data = generate_image(params)
         return Response(content=image_data, media_type="image/jpeg")
     except Exception as e:
         print(e)
