@@ -420,6 +420,8 @@ export const generatePlot = createAsyncThunk(
       variable: string;
       depthIndex: number;
       timeIndex: number;
+      lat_var: string;
+      lon_var: string;
     },
     { rejectWithValue, getState }
   ) => {
@@ -433,8 +435,8 @@ export const generatePlot = createAsyncThunk(
           if (dataset && depthCount >= params.depthIndex) {
             const image = await generateImageHelper({
               type: "4d",
-              lat_var: "lat", //TODO: Use the actual variable name
-              lon_var: "lon", //TODO: Use the actual variable name
+              lat_var: params.lat_var,
+              lon_var: params.lon_var,
               dataset_id: dataset.id,
               depth_index: params.depthIndex,
               variable: params.variable,

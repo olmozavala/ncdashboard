@@ -35,6 +35,8 @@ const FourDPlot = (props: FourDPlotProps) => {
       if (activeDataset)
         dispatch(
           generatePlot({
+            lat_var: "lat",
+            lon_var: "lon",
             dataset: activeDataset.id,
             variable: props.variable,
             depthIndex: depthIndex,

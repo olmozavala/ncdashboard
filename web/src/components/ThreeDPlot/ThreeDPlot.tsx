@@ -94,7 +94,7 @@ const ThreeDPlot = (props: FourDPlotProps) => {
       {images && (
         <>
           <Map image={images[`_time_${timeIndex}`]} lat={lat} lon={lon} />
-          <label>Depth Index: {depthIndex}</label>
+          <label>Time Index: {depthIndex}</label>
           <input
             type="range"
             min={0}
@@ -104,23 +104,6 @@ const ThreeDPlot = (props: FourDPlotProps) => {
             className="w-full"
             disabled={plot.loading}
           />
-          <label>Time Index: {timeIndex}</label>
-          {activeDataset.info.dims["time"] - 1 > 0 ? (
-            <input
-              type="range"
-              min={0}
-              max={activeDataset.info.dims["time"] - 1}
-              value={timeIndex}
-              onChange={(e) => setTimeIndex(parseInt(e.target.value))}
-              className="w-full"
-              disabled={plot.loading}
-            />
-          ) : (
-            <span className="text-sm">
-              {" "}
-              (Only one value of time index available)
-            </span>
-          )}
         </>
       )}
     </div>

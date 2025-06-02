@@ -101,13 +101,13 @@ const DatasetScreen = () => {
     if (available_datasets.length === 0) {
       dispatch(fetchDataSets());
     }
-  }, [dispatch]);
+  }, [dispatch, available_datasets.length]);
 
   useEffect(() => {
     if (selectedDataset && !selectedDataset.info) {
       dispatch(fetchDatasetInfo(selectedDataset.id));
     }
-  }, [selectedDataset]);
+  }, [selectedDataset, dispatch]);
 
 
   // Render
