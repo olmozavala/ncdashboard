@@ -2,6 +2,11 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
 import { Dataset, DatasetInfo, datasetVariableType, Plot } from "../../models";
+import {
+  GenerateImageRequest1D,
+  GenerateImageRequest3D,
+  GenerateImageRequest4D,
+} from "../../models/requests";
 
 /**
  * @module DataSlice
@@ -112,14 +117,17 @@ export const DataSlice = createSlice({
     // state.tempImage = action.payload;
     // }
 
-    setPlotGenerationProgess: (state, action: PayloadAction<{
-      variable: string;
-      progress: number;
-    }>) => {
+    setPlotGenerationProgess: (
+      state,
+      action: PayloadAction<{
+        variable: string;
+        progress: number;
+      }>
+    ) => {
       const plot = state.plots[action.payload.variable];
       if (plot && action.payload.progress > plot.progress) {
         plot.loading = true;
-        plot.progress = action.payload.progress;        
+        plot.progress = action.payload.progress;
       }
     },
   },
@@ -178,7 +186,7 @@ export const DataSlice = createSlice({
           */
 
           const tempInfo = action.payload;
-          tempInfo.variables_info;
+          // tempInfo.variables_info;
 
           for (const key in tempInfo.variables_info) {
             tempInfo.variables_info[key] = {
@@ -240,6 +248,62 @@ export const DataSlice = createSlice({
         state.error = true;
         state.loading = false;
         state.errorMessage = "Failed to generate plot";
+      })
+      .addCase(generatePlot3D.pending, (state, action) => {
+        state.error = false;
+        state.errorMessage = "";
+        if (action.meta.arg.variable in state.plots === false) {
+          state.plots[action.meta.arg.variable] = {
+            dataset: action.meta.arg.dataset,
+            variable: action.meta.arg.variable,
+            loading: true,
+            error: false,
+            images: {},
+            progress: 0,
+          };
+        } else {
+          state.plots[action.meta.arg.variable].loading = true;
+        }
+      })
+      .addCase(generatePlot3D.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = false;
+        if (action.payload && action.payload.images) {
+          state.plots[action.meta.arg.variable] = action.payload;
+        }
+      })
+      .addCase(generatePlot3D.rejected, (state) => {
+        state.error = true;
+        state.loading = false;
+        state.errorMessage = "Failed to generate 3D plot";
+      })
+      .addCase(generatePlot1D.pending, (state, action) => {
+        state.error = false;
+        state.errorMessage = "";
+        if (action.meta.arg.variable in state.plots === false) {
+          state.plots[action.meta.arg.variable] = {
+            dataset: action.meta.arg.dataset,
+            variable: action.meta.arg.variable,
+            loading: true,
+            error: false,
+            images: {},
+            progress: 0,
+          };
+        } else {
+          state.plots[action.meta.arg.variable].loading = true;
+        }
+      })
+      .addCase(generatePlot1D.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = false;
+        if (action.payload && action.payload.images) {
+          state.plots[action.meta.arg.variable] = action.payload;
+        }
+      })
+      .addCase(generatePlot1D.rejected, (state) => {
+        state.error = true;
+        state.loading = false;
+        state.errorMessage = "Failed to generate 1D plot";
       });
   },
 });
@@ -321,40 +385,16 @@ export const getLatLon = createAsyncThunk(
   }
 );
 
-async function generateImageHelper(params: {
-  dataset_id: string;
-  variable: string;
-  time_index: number;
-  depth_index: number;
-}): Promise<string> {
+// Helper for 1D, 3D, 4D image generation
+async function generateImageHelper(
+  params:
+    | ({ type: "1d" } & GenerateImageRequest1D)
+    | ({ type: "3d" } & GenerateImageRequest3D)
+    | ({ type: "4d" } & GenerateImageRequest4D)
+): Promise<string> {
   try {
     const response = await axios.post(
-      import.meta.env.VITE_BACKEND_API_URL + `/image/generate`,
-      params,
-      {
-        responseType: "blob",
-      }
-    );
-
-    const data = response.data;
-    const blob = new Blob([data], { type: "image/png" });
-    const url = URL.createObjectURL(blob);
-
-    return url;
-  } catch (error) {
-    console.error("Failed to generate image:", error);
-    throw error;
-  }
-}
-
-async function generateImageHelper3D(params: {
-  dataset_id: string;
-  variable: string;
-  time_index: number;
-}): Promise<string> {
-  try {
-    const response = await axios.post(
-      import.meta.env.VITE_BACKEND_API_URL + `/image/generate/3d`,
+      import.meta.env.VITE_BACKEND_API_URL + `/image/generate/` + params.type,
       params,
       {
         responseType: "blob",
@@ -378,11 +418,10 @@ export const generatePlot = createAsyncThunk(
     params: {
       dataset: string;
       variable: string;
-      dimension: number;
       depthIndex: number;
       timeIndex: number;
     },
-    { rejectWithValue, getState}
+    { rejectWithValue, getState }
   ) => {
     const state = getState() as { data: DataState };
     const dataset = state.data.available_datasets.find(
@@ -391,9 +430,11 @@ export const generatePlot = createAsyncThunk(
     if (dataset && dataset.info) {
       try {
         const depthCount = dataset.info.dims["depth"];
-        if (params.dimension === 4) {
-          if (dataset && depthCount >= params.depthIndex  ) {
+          if (dataset && depthCount >= params.depthIndex) {
             const image = await generateImageHelper({
+              type: "4d",
+              lat_var: "lat", //TODO: Use the actual variable name
+              lon_var: "lon", //TODO: Use the actual variable name
               dataset_id: dataset.id,
               depth_index: params.depthIndex,
               variable: params.variable,
@@ -410,7 +451,7 @@ export const generatePlot = createAsyncThunk(
               progress: 0,
             };
 
-            const images = {...existingPlot.images, [key]: image};
+            const images = { ...existingPlot.images, [key]: image };
 
             return {
               ...existingPlot,
@@ -418,9 +459,8 @@ export const generatePlot = createAsyncThunk(
               loading: false,
               error: false,
               progress: 100,
-            }
+            };
           }
-        }
       } catch (error) {
         console.error("Failed to generate plot:", error);
         return rejectWithValue("Failed to generate plot");
@@ -431,17 +471,15 @@ export const generatePlot = createAsyncThunk(
   }
 );
 
-
 export const generatePlot3D = createAsyncThunk(
-  "data/generatePlot",
+  "data/generatePlot3D",
   async (
     params: {
       dataset: string;
       variable: string;
-      dimension: number;
       timeIndex: number;
     },
-    { rejectWithValue, getState}
+    { rejectWithValue, getState }
   ) => {
     const state = getState() as { data: DataState };
     const dataset = state.data.available_datasets.find(
@@ -449,12 +487,14 @@ export const generatePlot3D = createAsyncThunk(
     );
     if (dataset && dataset.info) {
       try {
-        if (params.dimension === 4) {
-          if (dataset   ) {
-            const image = await generateImageHelper3D({
+          if (dataset) {
+            const image = await generateImageHelper({
+              type: "3d",
               dataset_id: dataset.id,
               variable: params.variable,
               time_index: params.timeIndex,
+              lat_var: "lat", //TODO: Use the actual variable name
+              lon_var: "lon", //TODO: Use the actual variable name
             });
 
             const key = `_time_${params.timeIndex}`;
@@ -467,7 +507,7 @@ export const generatePlot3D = createAsyncThunk(
               progress: 0,
             };
 
-            const images = {...existingPlot.images, [key]: image};
+            const images = { ...existingPlot.images, [key]: image };
 
             return {
               ...existingPlot,
@@ -475,9 +515,8 @@ export const generatePlot3D = createAsyncThunk(
               loading: false,
               error: false,
               progress: 100,
-            }
+            };
           }
-        }
       } catch (error) {
         console.error("Failed to generate plot:", error);
         return rejectWithValue("Failed to generate plot");
@@ -488,7 +527,61 @@ export const generatePlot3D = createAsyncThunk(
   }
 );
 
+export const generatePlot1D = createAsyncThunk(
+  "data/generatePlot1D",
+  async (
+    params: {
+      dataset: string;
+      variable: string;
+      timeIndex: number;
+    },
+    { rejectWithValue, getState }
+  ) => {
+    const state = getState() as { data: DataState };
+    const dataset = state.data.available_datasets.find(
+      (d) => d.id === params.dataset
+    );
+    if (dataset && dataset.info) {
+      try {
+          if (dataset) {
+            const image = await generateImageHelper({
+              type: "1d",
+              dataset_id: dataset.id,
+              variable: params.variable,
+              // lat_var: "lat", //TODO: Use the actual variable name
+              // lon_var: "lon", //TODO: Use the actual variable name
+            });
+
+            const key = `1d_time_${params.timeIndex}`;
+            const existingPlot: Plot = state.data.plots[params.variable] || {
+              dataset: dataset.id,
+              variable: params.variable,
+              loading: true,
+              error: false,
+              images: {},
+              progress: 0,
+            };
+
+            const images = { ...existingPlot.images, [key]: image };
+
+            return {
+              ...existingPlot,
+              images: images,
+              loading: false,
+              error: false,
+              progress: 100,
+            };
+          }
+      } catch (error) {
+        console.error("Failed to generate plot:", error);
+        return rejectWithValue("Failed to generate plot");
+      }
+    } else {
+      rejectWithValue("Dataset not found");
+    }
+  }
+);
 
 // Action creators are generated for each case reducer function
-export const { updateVariable ,setPlotGenerationProgess } = DataSlice.actions;
+export const { updateVariable, setPlotGenerationProgess } = DataSlice.actions;
 export default DataSlice.reducer;

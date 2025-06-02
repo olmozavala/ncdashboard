@@ -47,7 +47,7 @@ import {
   fetchDataSets,
   updateVariable,
 } from "../../redux/slices/DataSlice";
-import { Button, CheckBox, FourDPlot, ThreeDPlot } from "../../components";
+import { Button, CheckBox, FourDPlot, ThreeDPlot, OneDPlot } from "../../components";
 
 /**
  * Dataset visualization interface component
@@ -155,6 +155,9 @@ const DatasetScreen = () => {
             }
             if (selectedDataset?.info?.variables_info[v].checked && selectedDataset?.info?.variables_info[v].dimensions.length === 3) {
               return <ThreeDPlot variable={v} dataset={datasetId} key={v} height={500} width={500} />;
+            }
+            if (selectedDataset?.info?.variables_info[v].checked && selectedDataset?.info?.variables_info[v].dimensions.length === 1) {
+              return <OneDPlot variable={v} dataset={datasetId} key={v} height={500} width={500} />;
             }
           })
         : null}

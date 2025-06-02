@@ -1,17 +1,16 @@
 import { useDispatch, useSelector } from "react-redux";
-import { Map } from "..";
 import { AppDispatch, RootState } from "../../redux/store";
 import { useEffect, useState } from "react";
-import { generatePlot } from "../../redux/slices/DataSlice";
+import { generatePlot1D } from "../../redux/slices/DataSlice";
 
-interface FourDPlotProps {
+interface OneDPlotProps {
   variable: string;
   dataset: string;
   height?: number;
   width?: number;
 }
 
-const FourDPlot = (props: FourDPlotProps) => {
+const OneDPlot = (props: OneDPlotProps) => {
   const dispatch = useDispatch<AppDispatch>();
   const { plots, available_datasets } = useSelector(
     (state: RootState) => state.data
@@ -23,24 +22,23 @@ const FourDPlot = (props: FourDPlotProps) => {
 
   const [depthIndex, setDepthIndex] = useState<number>(0);
   const [timeIndex, setTimeIndex] = useState<number>(0);
-
   const plot = plots[props.variable];
 
   useEffect(() => {
-    const key = `depth_${depthIndex}_time_${timeIndex}`;
+    const key = `1d_time_${timeIndex}`;
     if (
       !plot ||
       (plot && plot.images !== undefined && key in plot.images === false)
     ) {
-      if (activeDataset)
+      if (activeDataset && activeDataset.info) {
         dispatch(
-          generatePlot({
+          generatePlot1D({
             dataset: activeDataset.id,
             variable: props.variable,
-            depthIndex: depthIndex,
             timeIndex: timeIndex,
           })
         );
+      }
     }
   }, [dispatch, activeDataset, props.variable, depthIndex, timeIndex, plot]);
 
@@ -57,14 +55,14 @@ const FourDPlot = (props: FourDPlotProps) => {
   }
 
   const images = plot.images;
-  const lat = [
-    activeDataset.info.lat[0],
-    activeDataset.info.lat[activeDataset.info.lat.length - 1],
-  ];
-  const lon = [
-    activeDataset.info.lon[0],
-    activeDataset.info.lon[activeDataset.info.lon.length - 1],
-  ];
+//   const lat = [
+//     activeDataset.info.lat[0],
+//     activeDataset.info.lat[activeDataset.info.lat.length - 1],
+//   ];
+//   const lon = [
+//     activeDataset.info.lon[0],
+//     activeDataset.info.lon[activeDataset.info.lon.length - 1],
+//   ];
 
   return (
     <div
@@ -94,11 +92,8 @@ const FourDPlot = (props: FourDPlotProps) => {
       )}
       {images && (
         <>
-          <Map
-            image={images[`depth_${depthIndex}_time_${timeIndex}`]}
-            lat={lat}
-            lon={lon}
-          />
+          {/* <Map image={images[`_time_${timeIndex}`]} lat={lat} lon={lon} /> */}
+          <img src={images[`1d_time_${timeIndex}`]} alt="1D Plot" />
           <label>Depth Index: {depthIndex}</label>
           <input
             type="range"
@@ -132,4 +127,4 @@ const FourDPlot = (props: FourDPlotProps) => {
   );
 };
 
-export default FourDPlot;
+export default OneDPlot;

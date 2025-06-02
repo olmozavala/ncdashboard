@@ -36,7 +36,6 @@ const ThreeDPlot = (props: FourDPlotProps) => {
           generatePlot3D({
             dataset: activeDataset.id,
             variable: props.variable,
-            dimension: 4,
             timeIndex: timeIndex,
           })
         );

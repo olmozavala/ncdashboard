@@ -21,3 +21,4 @@ export {default as Canvas} from './Canvas/Canvas';
 export {default as Map} from './Map/Map'
 export {default as FourDPlot} from './FourDPlot/FourDPlot';
 export {default as ThreeDPlot} from './ThreeDPlot/ThreeDPlot';
+export {default as OneDPlot} from './OneDPlot/OneDPlot';
