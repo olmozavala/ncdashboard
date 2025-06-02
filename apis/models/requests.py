@@ -26,4 +26,5 @@ class GenerateImageRequest4D(GenerateImageRequest1D):
 class GenerateImageRequest3D(GenerateImageRequest1D):
     lat_var: str = Field(..., description="The latitude variable to visualize")
     lon_var: str = Field(..., description="The longitude variable to visualize")
+    time_index: int = Field(..., description="Index for the time dimension")
     

@@ -16,7 +16,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 import os
 from utils.constants import DATA_DIR
-from models import ErrorType
+from models import ErrorType, DatasetInfoResponse
 from services.data import get_available_datasets, get_dataset_info_by_id, get_dataset_lat_lon
 from services.db import nc_db
 
@@ -86,8 +86,8 @@ async def get_dataset(dataset_id: str = None):
     except Exception as e:
         raise HTTPException(status_code=500, detail=ErrorType.INTERNAL_ERROR.value)
 
-@router.get("/info")
-async def get_dataset_info(dataset_id: str = None):
+@router.get("/info", response_model=DatasetInfoResponse)
+async def get_dataset_info(dataset_id: str):
     """
     Get detailed information about a specific dataset.
     

@@ -10,3 +10,4 @@ This package provides utility modules for the application:
 from .data import *
 from .constants import *
 from .logger import *
+from .colormap import *

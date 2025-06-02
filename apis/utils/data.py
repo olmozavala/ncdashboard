@@ -10,50 +10,6 @@ import plotly.graph_objects as go
 import numpy as np
 from typing import List
 
-def get_all_coords(data: xr.DataArray) -> tuple[xr.DataArray, xr.DataArray, xr.DataArray, xr.DataArray]:
-    """
-    Extract coordinate arrays from an xarray DataArray.
-    
-    This function attempts to identify and extract time, depth, latitude, and longitude
-    coordinates from the input data based on the number of coordinates present.
-    
-    Args:
-        data (xr.DataArray): Input data array to extract coordinates from
-        
-    Returns:
-        tuple: A tuple containing (times, depth, lats, lons) where each is an xarray DataArray
-        
-    Note:
-        The function makes assumptions about coordinate ordering:
-        - For 1 coordinate: assumes it's longitude
-        - For 2 coordinates: assumes they're latitude and longitude
-        - For 3 coordinates: assumes they're time, latitude, and longitude
-        - For 4 coordinates: assumes they're time, depth, latitude, and longitude
-    """
-    coords = list(data.coords.keys())
-    
-    # Initialize empty arrays for each coordinate type
-    lats = xr.DataArray(np.empty((0, 0)))
-    lons = xr.DataArray(np.empty((0, 0)))
-    times = xr.DataArray(np.empty((0, 0)))
-    depth = xr.DataArray(np.empty((0, 0)))
-
-    # Extract coordinates based on their count
-    if len(coords) == 1:  # Assume only longitude
-        lons = data[coords[0]]
-
-    if len(coords) >= 2:  # Assume latitude and longitude
-        lats = data[coords[-2]]
-        lons = data[coords[-1]]
-
-    if len(coords) >= 3:  # Assume time, latitude, longitude
-        times = data[coords[0]]
-
-    if len(coords) == 4:  # Assume time, depth, latitude, longitude
-        depth = data[coords[1]]
-
-    return times, depth, lats, lons
-
 def load_data(paths:List[str]) -> xr.Dataset:
     """
     Load a sample dataset for testing and development.
@@ -66,6 +22,33 @@ def load_data(paths:List[str]) -> xr.Dataset:
         in production code.
     """
     return xr.open_mfdataset(paths, decode_times=False, engine='netcdf4')
+
+def get_all_coords(data):
+    '''
+    This method returns the coordinates for a given data 
+    '''
+    coords =  list(data.coords.keys())
+    # Assume the last 2 are the spatial coordinates 
+    lats = xr.DataArray(np.empty((0, 0)))
+    lons = xr.DataArray(np.empty((0, 0)))
+    times = xr.DataArray(np.empty((0, 0)))
+    depth = xr.DataArray(np.empty((0, 0)))
+
+    if len(coords) == 1: # In this case we assume we have time, z, lat, lon
+        lons = data[coords[0]]
+
+    if len(coords) >= 2: # In this case we assume we have time, z, lat, lon
+        lats = data[coords[-2]]
+        lons = data[coords[-1]]
+
+    # TODO this should be something smarter, based on the names of the coordinates
+    if len(coords) >= 3: # In this case we assume we have time, z, lat, lon
+        times = data[coords[0]]
+
+    if len(coords) == 4: # In this case we assume we have time, z, lat, lon
+        depth = data[coords[1]]
+
+    return times, depth, lats, lons
 
 # Example usage (commented out)
 # data = load_data()

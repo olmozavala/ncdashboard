@@ -15,6 +15,7 @@ from models import (
     GenerateImageRequest1D,
     GenerateImageRequest3D,
 )
+from utils import select_colormap, get_all_coords
 
 
 def generate_image_1d(params: GenerateImageRequest1D):
@@ -77,10 +78,9 @@ def generate_image(params: GenerateImageRequest4D):
         raise ValueError(f"Dataset with ID {params.dataset_id} not found.")
     data = load_data([os.path.join(DATA_DIR, dataset["name"])])
     data_to_visualize = data[params.variable]
+    times, zaxis, lats, lons = get_all_coords(data_to_visualize)
     # Extract data for the specified indices
     z_data = data_to_visualize[params.time_index, params.depth_index, :, :]
-    lats = data[params.lat_var]
-    lons = data[params.lon_var]
 
     # Create heatmap figure
     fig = go.Figure(
@@ -89,7 +89,7 @@ def generate_image(params: GenerateImageRequest4D):
                 z=z_data,
                 x=lons.values,  # Longitude on x-axis
                 y=lats.values,  # Latitude on y-axis
-                colorscale="Viridis",
+                colorscale=select_colormap(params.variable),
                 showscale=True,
             )
         ],
@@ -112,7 +112,7 @@ def generate_image(params: GenerateImageRequest4D):
     return image_data
 
 
-def generate_image_3D(dataset, time_index, variable="water_u", data=None):
+def generate_image_3D(params: GenerateImageRequest3D):
     """
     Generate a 3D surface visualization image from dataset data.
 
@@ -126,25 +126,24 @@ def generate_image_3D(dataset, time_index, variable="water_u", data=None):
         bytes: PNG image data of the 3D visualization
     """
     # Load dataset if not provided
-    data = (
-        xr.open_dataset(os.path.join(DATA_DIR, dataset), decode_times=False)
-        if data is None
-        else data
-    )
+    dataset = nc_db.get_dataset_by_id(params.dataset_id)
+    if not dataset:
+        raise ValueError(f"Dataset with ID {params.dataset_id} not found.")
+    data = load_data([os.path.join(DATA_DIR, dataset["name"])])
+    data_to_visualize = data[params.variable]
 
     # Extract data for the specified time index (all depths)
-    z_data = data[variable][time_index, :, :]  # shape: (depth, lat, lon)
-    lats = data["lat"]
-    lons = data["lon"]
+    z_data = data_to_visualize[params.time_index, :, :]  # shape: (depth, lat, lon)
+    times, _, lats, lons = get_all_coords(data_to_visualize)
 
     # Create 3D surface plot
     fig = go.Figure(
         data=[
             go.Heatmap(
                 z=z_data,
-                x=lons.values,
-                y=lats.values,
-                colorscale="Viridis",
+                x=lons,
+                y=lats,
+                colorscale=select_colormap(params.variable),
                 showscale=True,
             )
         ],

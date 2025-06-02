@@ -58,13 +58,43 @@ async def get_image(dataset_id: str, image_id: str):
         return Response(content=image_data, media_type="image/jpeg")
 
 
-@router.post("/generate/1d")
+@router.post("/generate/1d", name="generate_image_1d")
 async def generate_image_endpoint1d(params: GenerateImageRequest1D):
     image_data = generate_image_1d(params)
     return Response(content=image_data, media_type="image/jpeg")
 
 
-@router.post("/generate/4d")
+
+@router.post("/generate/3d", name="generate_image_3d")
+async def generate_3d_image_endpoint(params: GenerateImageRequest3D):
+    """
+    Generate a 3D image based on the provided parameters.
+
+    Args:
+        params (GenerateImageRequest): The parameters for image generation including:
+            - dataset: The dataset ID
+            - time_index: The time index for the data
+            - depth_index: The depth index for the data
+            - variable: The variable to visualize
+
+    Returns:
+        Response: The generated 3D image as a JPEG response
+
+    Raises:
+        HTTPException:
+            - 500: If there's an error during image generation
+    """
+
+    try:
+        # Generate the 3D image using the provided parameters
+        image_data = generate_image_3D(params)
+        return Response(content=image_data, media_type="image/jpeg")
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail=ErrorType.INTERNAL_ERROR.value)
+
+
+@router.post("/generate/4d", name="generate_image_4d")
 async def generate_image_endpoint(params: GenerateImageRequest4D):
     """
     Generate a new image based on the provided parameters.
@@ -90,42 +120,6 @@ async def generate_image_endpoint(params: GenerateImageRequest4D):
     try:
         # Generate the image using the provided parameters
         image_data = generate_image(params)
-        return Response(content=image_data, media_type="image/jpeg")
-    except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail=ErrorType.INTERNAL_ERROR.value)
-
-
-@router.post("/generate/3d")
-async def generate_3d_image_endpoint(params):
-    """
-    Generate a 3D image based on the provided parameters.
-
-    Args:
-        params (GenerateImageRequest): The parameters for image generation including:
-            - dataset: The dataset ID
-            - time_index: The time index for the data
-            - depth_index: The depth index for the data
-            - variable: The variable to visualize
-
-    Returns:
-        Response: The generated 3D image as a JPEG response
-
-    Raises:
-        HTTPException:
-            - 500: If there's an error during image generation
-    """
-    dataset = nc_db.get_dataset_by_id(params["dataset_id"])
-    if not dataset:
-        raise HTTPException(status_code=404, detail=ErrorType.DATASET_NOT_FOUND.value)
-
-    try:
-        # Generate the 3D image using the provided parameters
-        image_data = generate_image_3D(
-            dataset["name"],
-            params["time_index"],
-            params["variable"],
-        )
         return Response(content=image_data, media_type="image/jpeg")
     except Exception as e:
         print(e)

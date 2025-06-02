@@ -10,7 +10,7 @@ import os
 from uuid import uuid4
 import xarray as xr
 from utils.constants import DATA_DIR
-from models import Dataset
+from models import Dataset, DatasetInfoResponse
 from services.db import nc_db
 from utils.logger import Logger
 
@@ -52,7 +52,7 @@ def get_available_datasets():
 
     return nc_db.db["datasets"]
 
-def get_dataset_info_by_id(dataset_id: str):
+def get_dataset_info_by_id(dataset_id: str) -> DatasetInfoResponse:
     """
     Retrieve detailed information about a specific dataset.
     
@@ -69,16 +69,18 @@ def get_dataset_info_by_id(dataset_id: str):
         The dataset is opened in read-only mode with times not decoded for efficiency.
     """
     dataset = nc_db.get_dataset_by_id(dataset_id)
+    if not dataset:
+        raise ValueError(f"Dataset with ID {dataset_id} not found.")
     data = xr.open_dataset(dataset["path"], decode_times=False)
     var_info = {var: list(data[var].dims) for var in data.data_vars}
     
-    return {
-        "attrs": data.attrs,
-        "dims": data.dims,
-        "variables_info": var_info,
-        "lat": data["lat"].values.tolist(),
-        "lon": data["lon"].values.tolist(),
-    }
+    return DatasetInfoResponse(
+        attrs=data.attrs,
+        dims=dict(data.dims),
+        variables_info=var_info,
+        lat=[data["lat"].values[0], data["lat"].values[-1]],
+        lon=[data["lon"].values[0], data["lon"].values[-1]],    
+    )
 
 def get_dataset_lat_lon(dataset_id: str):
     """
