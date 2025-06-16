@@ -1,5 +1,5 @@
 import { useDispatch, useSelector } from "react-redux";
-import { Map } from "..";
+import { Map, AnimControls } from "..";
 import { AppDispatch, RootState } from "../../redux/store";
 import { useEffect, useState } from "react";
 import { generatePlot3D } from "../../redux/slices/DataSlice";
@@ -21,15 +21,36 @@ const ThreeDPlot = (props: FourDPlotProps) => {
     (dataset) => dataset.id === props.dataset
   );
 
-  const [depthIndex, setDepthIndex] = useState<number>(0);
   const [timeIndex, setTimeIndex] = useState<number>(0);
+  const [paused, setPaused] = useState(true);
+  const maxTimeIndex = activeDataset && activeDataset.info && activeDataset.info.dims["time"]
+    ? activeDataset.info.dims["time"] - 1
+    : 0;
+
   const plot = plots[props.variable];
+
+  // Animation effect for timeIndex
+  useEffect(() => {
+    if (paused) return;
+    if (maxTimeIndex <= 0) return;
+    const interval = setInterval(() => {
+      setTimeIndex((prev) => {
+        if (prev < maxTimeIndex) {
+          return prev + 1;
+        } else {
+          setPaused(true); // Stop at the end
+          return prev;
+        }
+      });
+    }, 500); // Adjust speed as needed
+    return () => clearInterval(interval);
+  }, [paused, maxTimeIndex]);
 
   useEffect(() => {
     const key = `_time_${timeIndex}`;
     if (
       !plot ||
-      (plot && plot.images !== undefined && key in plot.images === false)
+      (plot.images !== undefined && !(key in plot.images))
     ) {
       if (activeDataset && activeDataset.info) {
         dispatch(
@@ -41,7 +62,15 @@ const ThreeDPlot = (props: FourDPlotProps) => {
         );
       }
     }
-  }, [dispatch, activeDataset, props.variable, depthIndex, timeIndex, plot]);
+  }, [dispatch, activeDataset, props.variable, timeIndex]);
+
+  // Handlers for AnimControls
+  const handlePlay = () => setPaused(false);
+  const handlePause = () => setPaused(true);
+  const handleNext = () => setTimeIndex((prev) => Math.min(prev + 1, maxTimeIndex));
+  const handlePrev = () => setTimeIndex((prev) => Math.max(prev - 1, 0));
+  const handleSkipToStart = () => setTimeIndex(0);
+  const handleEnd = () => setTimeIndex(maxTimeIndex);
 
   if (!activeDataset) {
     return <p>No active dataset found.</p>;
@@ -69,9 +98,9 @@ const ThreeDPlot = (props: FourDPlotProps) => {
     <div
       style={{
         zIndex: 90,
-        width: props.width || "600px",
-        height: props.height || "600px",
+        padding: "1rem",
       }}
+      className="bg-gray-800"
     >
       <p className="text-xl">{props.variable}</p>
       {plot.loading && (
@@ -93,16 +122,32 @@ const ThreeDPlot = (props: FourDPlotProps) => {
       )}
       {images && (
         <>
-          <Map image={images[`_time_${timeIndex}`]} lat={lat} lon={lon} />
-          <label>Time Index: {depthIndex}</label>
+          <div
+            style={{
+              width: props.width || "600px",
+              height: props.height || "600px",
+            }}
+          >
+            <Map image={images[`_time_${timeIndex}`]} lat={lat} lon={lon} />
+          </div>
+          <label>Time Index: {timeIndex}</label>
           <input
             type="range"
             min={0}
-            max={activeDataset.info.dims["depth"] - 1}
-            value={depthIndex}
-            onChange={(e) => setDepthIndex(parseInt(e.target.value))}
+            max={maxTimeIndex}
+            value={timeIndex}
+            onChange={(e) => setTimeIndex(parseInt(e.target.value))}
             className="w-full"
-            disabled={plot.loading}
+            disabled={plot && plot.loading}
+          />
+          <AnimControls
+            paused={paused}
+            onPlay={handlePlay}
+            onPause={handlePause}
+            onNext={handleNext}
+            onPrev={handlePrev}
+            onSkipToStart={handleSkipToStart}
+            onEnd={handleEnd}
           />
         </>
       )}

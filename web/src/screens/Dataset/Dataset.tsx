@@ -147,7 +147,7 @@ const DatasetScreen = () => {
         <br />
       </div>
       
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-[repeat(auto-fit,_minmax(550px,550px))] gap-4">
       {datasetId && variables
         ? variables.map((v) => {
             if (selectedDataset?.info?.variables_info[v].checked && selectedDataset?.info?.variables_info[v].dimensions.length === 4) {
