@@ -85,7 +85,7 @@ async def generate_image_endpoint(params: GenerateImageRequest4D):
         HTTPException:
             - 500: If there's an error during image generation
     """
-    # dataset = nc_db.get_dataset_by_id(params.dataset_id)
+    dataset = nc_db.get_dataset_by_id(params.dataset_id)
     if not dataset:
         raise HTTPException(status_code=404, detail=ErrorType.DATASET_NOT_FOUND.value)
 

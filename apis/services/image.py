@@ -22,7 +22,9 @@ def generate_image_1d(params: GenerateImageRequest1D):
     dataset = nc_db.get_dataset_by_id(params.dataset_id)
     if not dataset:
         raise ValueError(f"Dataset with ID {params.dataset_id} not found.")
-    data = load_data([os.path.join(DATA_DIR, dataset["name"])])
+    data_files = os.listdir(dataset["path"])
+    data_files = [os.path.join(dataset["path"], f) for f in data_files if f.endswith(".nc")]
+    data = load_data(data_files)
     data_to_visualize = data[params.variable]
 
     profile = data_to_visualize.values
@@ -75,7 +77,9 @@ def generate_image(params: GenerateImageRequest4D):
     dataset = nc_db.get_dataset_by_id(params.dataset_id)
     if not dataset:
         raise ValueError(f"Dataset with ID {params.dataset_id} not found.")
-    data = load_data([os.path.join(DATA_DIR, dataset["name"])])
+    data_files = os.listdir(dataset["path"])
+    data_files = [os.path.join(dataset["path"], f) for f in data_files if f.endswith(".nc")]
+    data = load_data(data_files)
     data_to_visualize = data[params.variable]
     times, zaxis, lats, lons = get_all_coords(data_to_visualize)
     # Extract data for the specified indices
