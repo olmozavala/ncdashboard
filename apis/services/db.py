@@ -34,7 +34,7 @@ class NC_DB:
         Initialize the database and load existing data.
         """
         self.db: NC_DataBaseType = db_initial_state
-        self.load_db()
+        # self.load_db()
     
     def load_db(self):
         """

@@ -20,7 +20,6 @@ from models import (
 )
 from services.image import generate_image, generate_image_3D, generate_image_1d
 from services.db import nc_db
-from utils.constants import CACHE_DIR
 
 
 # Initialize the router with base URL and tags
@@ -29,33 +28,6 @@ BASE_URL = "/image"
 router.prefix = BASE_URL
 router.tags = [BASE_URL]
 
-
-@router.get("/cached_image/{dataset_id}/{image_id}")
-async def get_image(dataset_id: str, image_id: str):
-    """
-    Retrieve a cached image by its dataset ID and image ID.
-
-    Args:
-        dataset_id (str): The ID of the dataset
-        image_id (str): The ID of the cached image
-
-    Returns:
-        Response: The cached image as a JPEG response
-
-    Raises:
-        HTTPException:
-            - 404: If the requested image is not found in the cache
-    """
-    # Construct the path to the cached image
-    image_path = os.path.join(CACHE_DIR, dataset_id, f"{image_id}.jpeg")
-
-    if not os.path.exists(image_path):
-        raise HTTPException(status_code=404, detail=ErrorType.IMAGE_NOT_FOUND.value)
-
-    # Read and return the cached image
-    with open(image_path, "rb") as image_file:
-        image_data = image_file.read()
-        return Response(content=image_data, media_type="image/jpeg")
 
 
 @router.post("/generate/1d", name="generate_image_1d")
@@ -113,7 +85,7 @@ async def generate_image_endpoint(params: GenerateImageRequest4D):
         HTTPException:
             - 500: If there's an error during image generation
     """
-    dataset = nc_db.get_dataset_by_id(params.dataset_id)
+    # dataset = nc_db.get_dataset_by_id(params.dataset_id)
     if not dataset:
         raise HTTPException(status_code=404, detail=ErrorType.DATASET_NOT_FOUND.value)
 

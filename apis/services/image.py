@@ -8,7 +8,6 @@ It handles the creation of heatmap visualizations using Plotly for geographical 
 import os
 import xarray as xr
 import plotly.graph_objects as go
-from services.db import nc_db
 from utils import DATA_DIR, load_data
 from models import (
     GenerateImageRequest4D,
@@ -16,7 +15,7 @@ from models import (
     GenerateImageRequest3D,
 )
 from utils import select_colormap, get_all_coords
-
+from services.db import nc_db
 
 def generate_image_1d(params: GenerateImageRequest1D):
     # data = xr.open_dataset(os.path.join(DATA_DIR, dataset), decode_times=False)
@@ -129,7 +128,9 @@ def generate_image_3D(params: GenerateImageRequest3D):
     dataset = nc_db.get_dataset_by_id(params.dataset_id)
     if not dataset:
         raise ValueError(f"Dataset with ID {params.dataset_id} not found.")
-    data = load_data([os.path.join(DATA_DIR, dataset["name"])])
+    data_files = os.listdir(dataset["path"])
+    data_files = [os.path.join(dataset["path"], f) for f in data_files if f.endswith(".nc")]
+    data = load_data(data_files)
     data_to_visualize = data[params.variable]
 
     # Extract data for the specified time index (all depths)
