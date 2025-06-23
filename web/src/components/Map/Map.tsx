@@ -30,7 +30,6 @@ import { OSM } from "ol/source";
 import Draw from "ol/interaction/Draw";
 import { Select } from "ol/interaction";
 import { Modify } from "ol/interaction";
-import { unByKey } from "ol/Observable";
 import { LineString } from "ol/geom";
 import { Style, Stroke, Fill } from "ol/style";
 import "ol/ol.css";
