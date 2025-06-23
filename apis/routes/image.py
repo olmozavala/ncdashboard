@@ -17,8 +17,14 @@ from models import (
     ErrorType,
     GenerateImageRequest4D,
     GenerateImageRequest3D,
+    GenerateImageRequestTransect,
 )
-from services.image import generate_image, generate_image_3D, generate_image_1d
+from services.image import (
+    generate_image,
+    generate_image_3D,
+    generate_image_1d,
+    generate_transect_image,
+)
 from services.db import nc_db
 
 
@@ -96,3 +102,42 @@ async def generate_image_endpoint(params: GenerateImageRequest4D):
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail=ErrorType.INTERNAL_ERROR.value)
+
+
+# ---------------------------------------------------------------------------
+# Transect Image Generation Endpoint
+# ---------------------------------------------------------------------------
+
+
+@router.post("/generate/4d/transect", name="generate_transect_image")
+async def generate_transect_image_endpoint(params: GenerateImageRequestTransect):
+    """
+    Generate a transect plot image based on the provided parameters.
+
+    Args:
+        params (GenerateImageRequestTransect): Parameters including dataset id, variable,
+            transect start/end coordinates, time index, and depth index.
+
+    Returns:
+        Response: PNG image containing the transect plot.
+
+    Raises:
+        HTTPException:
+            404: Dataset not found.
+            500: Internal error during image generation.
+    """
+
+    # Validate dataset existence early for clearer 404 handling
+    dataset = nc_db.get_dataset_by_id(params.dataset_id)
+    if not dataset:
+        raise HTTPException(status_code=404, detail=ErrorType.DATASET_NOT_FOUND.value)
+
+    try:
+        image_data = generate_transect_image(params)
+        # Return PNG bytes
+        return Response(content=image_data, media_type="image/png")
+    except Exception as e:
+        # Log the error (here we simply print; replace with proper logging if available)
+        print(e)
+        raise HTTPException(status_code=500, detail=ErrorType.INTERNAL_ERROR.value)
+
