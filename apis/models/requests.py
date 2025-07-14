@@ -48,3 +48,4 @@ class GenerateImageRequestTransect(GenerateImageRequest1D):
     end_lon: float = Field(..., description="Longitude of the transect end point")
     time_index: int = Field(..., description="Index for the time dimension")
     depth_index: int = Field(..., description="Index for the depth dimension")
+    invert_y_axis: bool = Field(False, description="If True, invert the Y axis so it starts at zero at the top of the image")

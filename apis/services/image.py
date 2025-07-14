@@ -195,6 +195,9 @@ def generate_transect_image(params: GenerateImageRequestTransect):
     two geographic points (start_lat/lon and end_lat/lon) for the provided
     time and depth indices.
 
+    Additional Parameters:
+        invert_y_axis (bool, optional): When True, inverts the Y-axis so that zero depth is shown at the top of the plot. Defaults to False.
+
     Args:
         params (GenerateImageRequestTransect): Parameters for transect generation.
 
@@ -274,6 +277,10 @@ def generate_transect_image(params: GenerateImageRequestTransect):
             template="plotly_dark",
         ),
     )
+
+    # Optionally invert the Y-axis so that zero depth appears at the top
+    if getattr(params, "invert_y_axis", False):
+        fig.update_yaxes(autorange="reversed")
 
     # Hide color bar for consistency with other images
     fig.update_traces(showscale=False)
