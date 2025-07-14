@@ -23,3 +23,4 @@ export { default as FourDPlot } from "./FourDPlot/FourDPlot";
 export { default as ThreeDPlot } from "./ThreeDPlot/ThreeDPlot";
 export { default as OneDPlot } from "./OneDPlot/OneDPlot";
 export { default as AnimControls } from "./AnimControls/AnimControls";
+export { default as Breadcrumbs } from "./Breadcrumbs/Breadcrumbs";

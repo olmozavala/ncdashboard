@@ -5,7 +5,7 @@
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SelectDatasetScreen, HomeScreen, DatasetScreen } from "../screens";
-import { Footer, Toast } from "../components";
+import { Footer, Toast, Breadcrumbs } from "../components";
 
 /**
  * Main navigation component that sets up the application's routing structure and global components.
@@ -21,19 +21,31 @@ import { Footer, Toast } from "../components";
  */
 const RootNavigator = () => {
   return (
-    <div className="flex flex-row">
-      <Toast />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/">
-            <Route index element={<HomeScreen />} />
-          </Route>
-          <Route path="/datasets" element={<SelectDatasetScreen />} />
-          <Route path="/:datasetId" element={<DatasetScreen />} />
-        </Routes>
-      </BrowserRouter>
-      <Footer />
-    </div>
+    <BrowserRouter>
+      <div className="flex flex-col min-h-screen w-full">
+        {/* Global Toast Notifications */}
+        <Toast />
+
+        {/* Breadcrumbs Navigation */}
+        <div className="px-4 pt-4">
+          <Breadcrumbs />
+        </div>
+
+        {/* Route Outlet */}
+        <div className="flex-grow">
+          <Routes>
+            <Route path="/">
+              <Route index element={<HomeScreen />} />
+            </Route>
+            <Route path="/datasets" element={<SelectDatasetScreen />} />
+            <Route path="/:datasetId" element={<DatasetScreen />} />
+          </Routes>
+        </div>
+
+        {/* Footer always at bottom */}
+        <Footer />
+      </div>
+    </BrowserRouter>
   );
 };
 

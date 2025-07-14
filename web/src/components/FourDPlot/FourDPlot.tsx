@@ -1,5 +1,6 @@
 import { useDispatch, useSelector } from "react-redux";
 import { AnimControls, Map } from "..";
+import { Breadcrumbs } from "..";
 import { AppDispatch, RootState } from "../../redux/store";
 import { useEffect, useState } from "react";
 import { generatePlot } from "../../redux/slices/DataSlice";
@@ -25,14 +26,22 @@ const FourDPlot = (props: FourDPlotProps) => {
   const [depthIndex, setDepthIndex] = useState<number>(0);
   const [timeIndex, setTimeIndex] = useState<number>(0);
   const [paused, setPaused] = useState(true);
+  // Animation state for depth index
+  const [depthPaused, setDepthPaused] = useState(true);
   const [isModal, setIsModal] = useState(false);
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [transectCoordinates, setTransectCoordinates] = useState<number[][]>([]);
   const [clearTransect, setClearTransect] = useState(false);
   const [transectImage, setTransectImage] = useState<string | null>(null);
   const [loadingTransect, setLoadingTransect] = useState<boolean>(false);
+  const [invertYAxis, setInvertYAxis] = useState<boolean>(false);
   const maxTimeIndex = activeDataset && activeDataset.info && activeDataset.info.dims["time"]
     ? activeDataset.info.dims["time"] - 1
+    : 0;
+
+  // Maximum valid depth index
+  const maxDepthIndex = activeDataset && activeDataset.info && activeDataset.info.dims["depth"]
+    ? activeDataset.info.dims["depth"] - 1
     : 0;
 
   const plot = plots[props.variable];
@@ -74,6 +83,23 @@ const FourDPlot = (props: FourDPlotProps) => {
     return () => clearInterval(interval);
   }, [paused, maxTimeIndex]);
 
+  // Depth animation effect
+  useEffect(() => {
+    if (depthPaused) return;
+    if (maxDepthIndex <= 0) return;
+    const interval = setInterval(() => {
+      setDepthIndex((prev) => {
+        if (prev < maxDepthIndex) {
+          return prev + 1;
+        } else {
+          setDepthPaused(true); // Stop at the end
+          return prev;
+        }
+      });
+    }, 500);
+    return () => clearInterval(interval);
+  }, [depthPaused, maxDepthIndex]);
+
   // Handlers for AnimControls
   const handlePlay = () => setPaused(false);
   const handlePause = () => setPaused(true);
@@ -81,6 +107,14 @@ const FourDPlot = (props: FourDPlotProps) => {
   const handlePrev = () => setTimeIndex((prev) => Math.max(prev - 1, 0));
   const handleSkipToStart = () => setTimeIndex(0);
   const handleEnd = () => setTimeIndex(maxTimeIndex);
+
+  // Handlers for Depth AnimControls
+  const handleDepthPlay = () => setDepthPaused(false);
+  const handleDepthPause = () => setDepthPaused(true);
+  const handleDepthNext = () => setDepthIndex((prev) => Math.min(prev + 1, maxDepthIndex));
+  const handleDepthPrev = () => setDepthIndex((prev) => Math.max(prev - 1, 0));
+  const handleDepthSkipToStart = () => setDepthIndex(0);
+  const handleDepthEnd = () => setDepthIndex(maxDepthIndex);
 
   const handleEditClick = () => {
     console.log('FourDPlot: Edit button clicked, setting modal to true');
@@ -104,6 +138,7 @@ const FourDPlot = (props: FourDPlotProps) => {
     console.log('FourDPlot: Entering drawing mode');
     setIsDrawingMode(true);
     setTransectCoordinates([]);
+    setInvertYAxis(false);
   };
 
   const handleExitDrawingMode = () => {
@@ -148,6 +183,7 @@ const FourDPlot = (props: FourDPlotProps) => {
             end_lon: transectCoordinates[1][1],
             time_index: timeIndex,
             depth_index: depthIndex,
+            invert_y_axis: invertYAxis,
           },
           { responseType: "blob" }
         );
@@ -164,7 +200,7 @@ const FourDPlot = (props: FourDPlotProps) => {
     };
 
     fetchTransect();
-  }, [transectCoordinates, depthIndex, timeIndex, activeDataset, props.variable]);
+  }, [transectCoordinates, depthIndex, timeIndex, invertYAxis, activeDataset, props.variable]);
 
   if (!activeDataset) {
     return <p>No active dataset found.</p>;
@@ -190,6 +226,14 @@ const FourDPlot = (props: FourDPlotProps) => {
 
   const plotContent = (
     <>
+      {/* Breadcrumbs specific to this plot */}
+      <Breadcrumbs
+        extra={[
+          { label: props.variable },
+          { label: `Depth ${depthIndex}` },
+          { label: `Time ${timeIndex}` },
+        ]}
+      />
       <div className="flex justify-between items-center mb-4">
         <p className="text-xl">{props.variable}</p>
         <div className="flex gap-2">
@@ -308,16 +352,26 @@ const FourDPlot = (props: FourDPlotProps) => {
                 className="p-4 bg-gray-700 rounded-lg overflow-auto"
                 style={{
                   // maxHeight: props.height || "600px",
+                  zIndex: 100,
                 }}
               >
                 <h3 className="text-lg font-semibold mb-2">Transect Coordinates</h3>
-                <div className="max-h-32 overflow-y-auto">
+                <div className="max-h-32 overflow-y-auto mb-2">
                   {transectCoordinates.map((coord, index) => (
                     <div key={index} className="text-sm">
                       Point {index + 1}: Lat {coord[0].toFixed(4)}, Lon {coord[1].toFixed(4)}
                     </div>
                   ))}
                 </div>
+                <label className="flex items-center gap-2 mt-2">
+                  <input
+                    type="checkbox"
+                    className="form-checkbox text-purple-600"
+                    checked={invertYAxis}
+                    onChange={(e) => setInvertYAxis(e.target.checked)}
+                  />
+                  <span>Invert Y Axis</span>
+                </label>
                 {loadingTransect && (
                   <div className="flex items-center mt-4 text-sm text-gray-300">
                     <div className="w-4 h-4 border-4 border-t-transparent border-white rounded-full animate-spin mr-2"></div>
@@ -345,6 +399,17 @@ const FourDPlot = (props: FourDPlotProps) => {
             onChange={(e) => setDepthIndex(parseInt(e.target.value))}
             className="w-full"
             disabled={plot.loading}
+          />
+
+          {/* Depth animation controls */}
+          <AnimControls
+            paused={depthPaused}
+            onPlay={handleDepthPlay}
+            onPause={handleDepthPause}
+            onNext={handleDepthNext}
+            onPrev={handleDepthPrev}
+            onSkipToStart={handleDepthSkipToStart}
+            onEnd={handleDepthEnd}
           />
           <label>Time Index: {timeIndex}</label>
           {activeDataset.info.dims["time"] - 1 > 0 ? (
@@ -379,7 +444,9 @@ const FourDPlot = (props: FourDPlotProps) => {
 
   if (isModal) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 transition-opacity duration-300">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 transition-opacity duration-300" style={{
+        zIndex:100
+      }}>
         <div 
           className="bg-gray-800 rounded-lg shadow-2xl transition-all duration-300 ease-in-out"
           style={{
