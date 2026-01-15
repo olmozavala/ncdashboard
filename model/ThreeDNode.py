@@ -1,13 +1,11 @@
 # This is a the ThreeDNode class, which inherits from the FigureNode class.
 # It is used to create a node that can be used plot 4D data.
 
-import plotly.graph_objects as go
-from dash import dcc
+import holoviews as hv
+import panel as pn
 
 from model.TreeNode import FigureNode
-from model.model_utils import PlotType
 from model.model_utils import PlotType, get_all_coords
-from proj_layout.utils import get_buttons_config
 
 class ThreeDNode(FigureNode):
     # This is the constructor for the AnimationNode class. It calls its parent's constructor.
@@ -24,50 +22,40 @@ class ThreeDNode(FigureNode):
 
     def create_figure(self):
         colormap = self.cmap
-        data = self.data  # Because it is 3D we assume the spatial coordinates are the last 2
-        times, _, lats, lons = get_all_coords(data)
-        lats = lats.values
-        lons = lons.values
+        
+        data = self.data
+        if self.plot_type == PlotType.ThreeD:
+            # We assume logical structure [time, lat, lon] for 3D
+            # Select the time slice
+            data = self.data[self.time_idx, :, :]
 
-        data = data[self.time_idx, :,:]
+        # We assume the last two coordinates are spatial (lat, lon)
+        lats = data.coords[self.coord_names[-2]].values
+        lons = data.coords[self.coord_names[-1]].values
 
-        self.title = f'{self.title} at {self.coord_names[0].capitalize()} {self.time_idx}'
-        new_graph = dcc.Graph(
-                id={"type": "figure", "index": self.id},
-                figure=go.Figure(
-                        data=[go.Heatmap(z=data, colorscale=colormap, showscale=True, x=lons, y=lats)], 
-                        layout=go.Layout(title=self.title, 
-# zoom, pan, select, lasso, orbit, turntable, zoomInGeo, zoomOutGeo, autoScale2d, resetScale2d, hoverClosestCartesian, hoverClosestGeo, hoverClosestGl2d, hoverClosestPie, toggleHover, resetViews, toggleSpikelines, resetViewMapbox
-                                dragmode="pan", 
-                                height=350,
-                                margin=dict(
-                                    l=0,  # left margin
-                                    r=0,  # right margin
-                                    b=0,  # bottom margin
-                                    t=30,  # top margin
-                                    pad=0  # padding
-                                ),
-                            ),
-                    ),
-            config=get_buttons_config(),
+        title = f'{self.title} at {self.coord_names[0].capitalize()} {self.time_idx}'
+
+        img = hv.Image((lons, lats, data), [self.coord_names[-1], self.coord_names[-2]])
+        img.opts(
+            cmap=colormap,
+            title=title,
+            tools=['hover'],
+            colorbar=True,
+            responsive=True,
+            aspect='equal'
         )
-        return new_graph
+        return img
 
-    # Next time and depth functions are used to update the time and depth indices.
-    # They are used when the user clicks on the time and depth buttons.
     def next_time(self):
-        self.time_idx = (self.time_idx + 1) % len(self.data[self.time_coord_name])
-        return self.time_idx
-
-    # Previous time and depth functions are used to update the time and depth indices.
-    def prev_time(self):
-        self.time_idx = (self.time_idx - 1) % len(self.data[self.time_coord_name])
+        self.time_idx = (self.time_idx + 1) % len(self.data[self.coord_names[0]])
         return self.time_idx
     
-    # Setters and getters for the time and depth indices
-    def set_time_idx(self, time_idx):
-        self.time_idx = time_idx
-
-    def get_time_idx(self):
+    def prev_time(self):
+        self.time_idx = (self.time_idx - 1) % len(self.data[self.coord_names[0]])
         return self.time_idx
 
+    def set_time_idx(self, time_idx):
+        self.time_idx = time_idx
+        
+    def get_time_idx(self):
+        return self.time_idx

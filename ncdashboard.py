@@ -17,7 +17,7 @@ import glob
 from docopt import docopt
 import dash_bootstrap_components as dbc
 
-from controller import NcDashboard
+from ncdashboard_panel import NcDashboard
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
 

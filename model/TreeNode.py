@@ -1,11 +1,11 @@
 # An enum with the types of plots
-import plotly.graph_objects as go
-from dash import dcc
+import holoviews as hv
+import panel as pn
 import xarray as xr
 import numpy as np
 
 from model.model_utils import PlotType, get_all_coords
-from proj_layout.utils import get_buttons_config, select_colormap
+from proj_layout.utils import select_colormap
 
 class FigureNode:
     def __init__(self, id, data, title=None, field_name=None, bbox=None, plot_type = PlotType.TwoD, 

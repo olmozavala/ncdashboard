@@ -1,5 +1,5 @@
 import xarray as xr
-import logging
+from loguru import logger
 from os.path import join
 from model.AnimationNode import AnimationNode
 from model.FourDNode import FourDNode
@@ -7,16 +7,10 @@ from model.OneDNode import OneDNode
 from model.ProfileNode import ProfileNode
 from model.ThreeDNode import ThreeDNode
 from model.TreeNode import FigureNode
-import dash_bootstrap_components as dbc
-from dash import Patch, html, dcc
+import panel as pn
+import holoviews as hv
 from model.model_utils import PlotType, select_profile, select_spatial_location
-from proj_layout.figures import get_animation_controls, get_frame_controls
-
-from proj_layout.utils import get_buttons_config, get_def_slider, get_update_buttons, select_colormap
-
-logger = logging.getLogger(__name__)
-
-# Make a class with attributes and methods to create a dashboard
+from proj_layout.utils import select_colormap
 
 class Dashboard:
     def __init__(self, path, regex):
@@ -24,293 +18,174 @@ class Dashboard:
         self.regex = regex
 
         logger.info(f"Opening files in {self.path} with regex {self.regex}")
-        # data = xr.open_dataset('https://tds.hycom.org/thredds/dodsC/GLBa0.08/expt_91.2/2018')
-        # data = xr.open_dataset('https://tds.hycom.org/thredds/dodsC/GLBy0.08/expt_93.0/ts3z', decode_times=False)
-        # data = xr.open_dataset('https://tds.hycom.org/thredds/dodsC/GOMu0.04/expt_90.1m000/data/hindcasts/2023', decode_times=False)
-        # data = xr.open_dataset('https://coastwatch.noaa.gov/thredds/dodsC/CoastWatch/VIIRS/npp-n20/chloci/DailyGlobalDINEOF/WW00/LoM', decode_times=False)
         if isinstance(self.path, list):
             data = xr.open_mfdataset(self.path, decode_times=False)
         else:
             data = xr.open_mfdataset(join(self.path, self.regex), decode_times=False)
 
-        self.tree_root = FigureNode('root', data=data, parent=None) # type: ignore
-        # From data identify which fields are 3D, 2D and 1D
-        four_d = []
-        three_d = []
-        two_d = []
-        one_d = []
+        self.tree_root = FigureNode('root', data=data, parent=None)
+        
+        # Identify field dimensions
+        self.four_d = []
+        self.three_d = []
+        self.two_d = []
+        self.one_d = []
+        
         for var in data.variables:
-            if len(data[var].shape) == 4:
-                four_d.append(var)
-            if len(data[var].shape) == 3:
-                three_d.append(var)
-            elif len(data[var].shape) == 2:
-                two_d.append(var)
-            elif len(data[var].shape) == 1:
-                one_d.append(var)
+            shape_len = len(data[var].shape)
+            if shape_len == 4:
+                self.four_d.append(var)
+            elif shape_len == 3:
+                self.three_d.append(var)
+            elif shape_len == 2:
+                self.two_d.append(var)
+            elif shape_len == 1:
+                self.one_d.append(var)
         
         self.data = data
-        self.four_d = four_d
-        self.three_d = three_d
-        self.two_d = two_d
-        self.one_d = one_d
 
-    def create_default_figure(self, c_field, plot_type, new_node=None, window_ratio = 0.8):
+    def create_default_figure(self, c_field, plot_type, layout_container=None, new_node=None):
         '''
-        This method creates a default figure for the dashboard. It is called when the user hits the 'plot' button. 
+        Creates a figure for the dashboard. Returns a Panel object (Column).
         '''
-
-        col_width = 4
+        # Log plot creation details
+        dims_str = "Unknown"
+        if plot_type == PlotType.FourD: dims_str = "4D"
+        elif plot_type == PlotType.ThreeD: dims_str = "3D"
+        elif plot_type == PlotType.TwoD: dims_str = "2D"
+        elif plot_type == PlotType.OneD: dims_str = "1D"
+        
+        # Get data shape for logging
+        shape_str = str(self.data[c_field].shape)
+        logger.info(f"Creating new plot - Dimensions: {dims_str}, Field: {c_field}, Shape: {shape_str}")
 
         if new_node is None:
             id = self.id_generator(c_field)
 
             if plot_type == PlotType.ThreeD:
                 new_node = ThreeDNode(id, self.data[c_field], time_idx=0,
-                                        plot_type=plot_type, field_name=c_field, parent=self.tree_root) # type: ignore
-
+                                        plot_type=plot_type, field_name=c_field, parent=self.tree_root)
             elif plot_type == PlotType.FourD:
                 new_node = FourDNode(id, self.data[c_field], time_idx=0, depth_idx=0, 
-                                        plot_type=plot_type, field_name=c_field, 
-                                        parent=self.tree_root) # type: ignore
-
+                                        plot_type=plot_type, field_name=c_field, parent=self.tree_root)
             elif plot_type == PlotType.OneD:
                 new_node = OneDNode(id, self.data[c_field], plot_type=plot_type, field_name=c_field, 
-                                        parent=self.tree_root) # type: ignore
+                                        parent=self.tree_root)
             else: 
                 new_node = FigureNode(id, self.data[c_field], plot_type=plot_type, field_name=c_field, 
-                                        parent=self.tree_root) # type: ignore
+                                        parent=self.tree_root)
 
-            self.tree_root.add_child(new_node) # type: ignore
+            self.tree_root.add_child(new_node) 
 
-        fig = new_node.create_figure()
-        plot_type = new_node.get_plot_type()
+        # Create HoloViews object
+        hv_obj = new_node.create_figure()
         
-        coords = new_node.get_animation_coords()
-        # If we have animation coordinates and we are not plotting an animation we make the buttons
-        anim_options = []
-        frame_controls = []
-        if len(coords) > 0 and not plot_type.is_animation():
-            anim_options = get_animation_controls(new_node.id, coords)
-            frame_controls = get_frame_controls(new_node.id, coords) 
+        # Setup Tap stream for 2D/3D/4D plots (Drill Down)
+        if plot_type in [PlotType.TwoD, PlotType.ThreeD, PlotType.FourD, PlotType.ThreeD_Animation, PlotType.FourD_Animation]:
+            tap = hv.streams.Tap(source=hv_obj)
+            
+            def tap_callback(x, y):
+                if x is None or y is None: 
+                    return
+                # Create profile
+                self.create_profiles(new_node.id, x, y, layout_container)
+            
+            tap.add_subscriber(tap_callback)
 
-        if plot_type.is_animation() or plot_type == PlotType.FourD or plot_type == PlotType.ThreeD:
-            # We need a way to track which figures generate 'click_data_list' data.
-            # The chidren MUST be the ID, this H4 is used to identify the figure that clicked inside
-            # HIddden
-            header = html.H4(f"{new_node.id}", style={"backgroundColor": "yellow","display":"none"},
-                                        id={"type": f"click_data_identifier", "index": new_node.id})
-        else:
-            header = html.H4(new_node.id, style={"backgroundColor": "lightblue","display":"none"})
+        # Create Panel container
+        # We wrap in a Pane to ensure it renders correctly
+        pane = pn.pane.HoloViews(hv_obj, sizing_mode='stretch_both')
+        
+        container = pn.Column(
+            sizing_mode='fixed', # Allow FlexBox to wrap it
+            width=600, # Approx half width of 1080p screen, or good size for 2-col
+            margin=(10, 10),
+            styles={'background': '#f0f0f0', 'border-radius': '5px', 'padding': '10px'}
+        )
+        
+        # Close Button
+        header_row = pn.Row(
+            pn.layout.HSpacer(),
+            pn.widgets.Button(name="x", button_type="danger", width=30, height=30, align='center')
+        )
+        close_btn = header_row[1]
+        
+        def close_action(event):
+            if layout_container is not None:
+                # Remove self from layout
+                try:
+                    layout_container.remove(container)
+                except ValueError:
+                    pass # Already removed
+            else:
+                container.visible = False
+            
+            # Remove from tree?
+            # self.tree_root.remove_id(new_node.id) 
 
-        new_figure = dbc.Col(
-                            [
-                                header,
-                                *frame_controls,
-                                # Buttons with reduced pad and margin
-                                html.Div([ dbc.Button("x", id={"type":"close_figure", "index":new_node.id}, color="danger"
-                                                    , size="sm", className="mr-1 mb-1"),
-                                            ], className="d-flex justify-content-end"),
-                                fig,
-                                *anim_options,
-                                # html.Div([ dbc.Button("Download Data", id={"type":"download_data", "index":new_node.id}, 
-                                #                       color="success", size="sm", className="mr-1 mb-1"),
-                                #             ], className="d-flex justify-content-center"),
-                            ],
-                            id = f'figure:{new_node.id}',
-                            width=col_width)
+        close_btn.on_click(close_action)
+        
+        container.extend([header_row, pane])
+        
+        return container
 
-        return new_figure
-
-    def create_profiles(self, parent_id, clicked_data, patch) -> list:
+    def create_profiles(self, parent_id, lon, lat, layout_container):
         '''
-        Creates a profile for the given parent_id and clicked_data
+        Creates a profile for the given parent_id and triggered coordinates (lon, lat).
+        Adds the result to layout_container.
         '''
-
         parent_node = self.tree_root.locate(parent_id)
+        if not parent_node:
+            return
+
         data = parent_node.get_data()
         parent_node_id = parent_node.get_id()
         parent_field = parent_node.get_field_name()
-        col_width = 4
-
-        # We are assuming we made it to here because someone clicked on the map
-        # so we need to plot a profile
-
-        lon = clicked_data["points"][0]["x"]
-        lat = clicked_data["points"][0]["y"]
-
         parent_coord_names = parent_node.get_coord_names()
+
+        # Select spatial location
         subset_data = select_spatial_location(data, lat, lon, parent_coord_names)
         dims = subset_data.dims
 
         for c_dim in dims:
             id = self.id_generator(f'{parent_node_id}_{c_dim}_prof')
-            title = f'{parent_node.get_long_name()} at {lat:0.2f}, {lon:0.2f} ({c_dim.capitalize()})' # type: ignore
+            title = f'{parent_node.get_long_name()} at {lat:0.2f}, {lon:0.2f} ({c_dim.capitalize()})'
 
             profile_data = select_profile(subset_data, c_dim, dims)
             
             new_node = ProfileNode(id, profile_data, lat, lon, c_dim, title, plot_type=PlotType.OneD, 
-                                field_name=parent_field, parent=parent_node) # type: ignore
+                                field_name=parent_field, parent=parent_node)
 
             parent_node.add_child(new_node) 
-            fig = new_node.create_figure()
             
-            header = html.H4(new_node.id, style={"backgroundColor": "lightblue","display":"none"})
+            # Create the figure container using create_default_figure logic re-used or manual?
+            # Re-using create_default_figure allows recursive close logic
+            fig_container = self.create_default_figure(None, PlotType.OneD, layout_container, new_node=new_node)
+            
+            if layout_container is not None:
+                layout_container.append(fig_container)
 
-
-            new_figure = dbc.Col(
-                                [
-                                    header,
-                                    # Buttons with reduced pad and margin
-                                    html.Div([ dbc.Button("x", id={"type":"close_figure", "index":new_node.id}, color="danger"
-                                                        , size="sm", className="mr-1 mb-1"),
-                                                ], className="d-flex justify-content-end"),
-                                    fig,
-                                ],
-                                id = f'figure:{new_node.id}',
-                                width=col_width)
-
-            patch.append(new_figure)
-
-        return patch
+    def get_field_names(self, var_type):
+        dim_fields = []
+        if var_type == "1D": dim_fields = self.one_d
+        elif var_type == "2D": dim_fields = self.two_d
+        elif var_type == "3D": dim_fields = self.three_d
+        elif var_type == "4D": dim_fields = self.four_d
         
-    def get_field_names(self, field_dimension) -> list:
-            '''
-            This method returns the field names for a given dimension
-            The dimension can be 1D, 2D, 3D or 4D
-            '''
-            dim_fields = []
-            if field_dimension == "1D":
-                dim_fields = self.one_d
-            elif field_dimension == "2D":
-                dim_fields = self.two_d
-            elif field_dimension == "3D":
-                dim_fields = self.three_d
-            elif field_dimension == "4D":
-                dim_fields = self.four_d
-
-            try:
-                # Using long name form the data
-                dim_name = [self.data[x].long_name for x in dim_fields]
-            except:
-                # Using the variable name
-                dim_name = [x for x in dim_fields]
-
-            return [(dim_name[i],x, str(self.data[x].shape)) for i, x in enumerate(dim_fields)]
+        results = []
+        for f in dim_fields:
+            if hasattr(self.data[f], 'long_name'):
+                name = self.data[f].long_name
+            else:
+                name = f
+            results.append((name, f, str(self.data[f].shape)))
+            
+        return results
 
     def id_generator(self, field_name):
-        '''
-        This method returns an id for a given field name
-        '''
         new_id = field_name
         count = 2
         while self.tree_root.locate(new_id) is not None:
             new_id = field_name + f'_{count}'
             count += 1
-
         return new_id
-    
-    def close_figure(self, node_id, prev_children, patch):
-        '''
-        This method closes an exising figure and removes the corresponing object from the tree. 
-        '''
-        # Iterate over the exisiting figures. Remember that on the interface there is
-        # just 'one leve' tree. All the figures are on the 'same level'.
-        for idx, c_child in enumerate(prev_children):
-            # If we found the corresponding figure, remove it from the list of children
-            if c_child['props']['id'].split(':')[1] == node_id:
-                # print(f"Removing child {c_child['props']['id']}")
-                del patch[idx]
-                self.tree_root.remove_id(node_id)
-                break
-
-        return patch 
-
-    def update_figure(self, idx, current_node: FigureNode, patch):
-
-        '''
-        This method creates a new animation figure.
-        '''
-        fig = current_node.create_figure()
-        col_width = 4
-        
-        # If we have animation coords and we are not plotting an animation we make the buttons
-        anim_options = []
-
-        header = html.H4(f"{current_node.id}", style={"backgroundColor": "yellow"},
-                                    id={"type": f"click_data_identifier", "index": current_node.id})
-
-        new_figure = dbc.Col(
-                            [
-                                header,
-                                *anim_options,
-                                # Buttons with reduced pad and margin
-                                html.Div([ dbc.Button("x", id={"type":"close_figure", "index":current_node.id}, color="danger"
-                                                    , size="sm", className="mr-1 mb-1"),
-                                            ], className="d-flex justify-content-end"),
-                                fig,
-                            ],
-                            id = f'figure:{current_node.id}',
-                            width=col_width)
-
-        patch[idx] = new_figure
-
-        return patch
-
-    def create_animation_figure(self, parent_id, anim_coord, resolution, patch):
-        '''
-        This method creates a new animation figure.
-        '''
-
-        # TODO need to decide which plot type it is. Based on the parent type. If it was 
-        # a 3D plot, then it should be a 3D animation. If it was a 4D plot, then it should be a 4D animation
-        parent_node = self.tree_root.locate(parent_id)
-
-        if parent_node.get_plot_type() == PlotType.ThreeD:
-            plot_type = PlotType.ThreeD_Animation
-        else:
-            plot_type = PlotType.FourD_Animation
-        
-        data = parent_node.get_data()
-        parent_node_id = parent_node.get_id()
-        parent_field = parent_node.get_field_name()
-        col_width = 4
-
-        id = self.id_generator(f'{parent_node_id}_{anim_coord}_anim')
-        new_node = AnimationNode(id, data, anim_coord, resolution, plot_type=plot_type, 
-                            field_name=parent_field, parent=parent_node)# type: ignore
-
-        parent_node.add_child(new_node) 
-        fig = new_node.create_figure()
-        
-        # If we have animation coords and we are not plotting an animation we make the buttons
-        anim_options = []
-
-        header = html.H4(f"{new_node.id}", style={"backgroundColor": "yellow"},
-                                    id={"type": f"click_data_identifier", "index": new_node.id})
-
-        new_figure = dbc.Col(
-                            [
-                                header,
-                                *anim_options,
-                                # Buttons with reduced pad and margin
-                                html.Div([ dbc.Button("x", id={"type":"close_figure", "index":new_node.id}, color="danger"
-                                                    , size="sm", className="mr-1 mb-1"),
-                                            ], className="d-flex justify-content-end"),
-                                fig,
-                            ],
-                            id = f'figure:{new_node.id}',
-                            width=col_width)
-
-        patch.append(new_figure)
-
-        return patch
-
-
-
-
-# Main to test the class
-if __name__ == '__main__':
-    path = "./test_data/"
-    regex = "hycom_gom.nc"
-    obj = Dashboard(path, regex)
