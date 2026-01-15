@@ -23,9 +23,9 @@ class ThreeDNode(FigureNode):
         self.third_coord_name = data.coords[self.coord_names[0]].name
         
         # Stream for dynamic updates
-        self.update_stream = hv.streams.Stream.define('Update')()
+        self.update_stream = hv.streams.Counter()
 
-    def _render_plot(self, **kwargs):
+    def _render_plot(self, counter=0, **kwargs):
         colormap = self.cmap
         
         data = self.data
@@ -40,7 +40,7 @@ class ThreeDNode(FigureNode):
 
         title = f'{self.title} at {self.coord_names[0].capitalize()} {self.coord_idx}'
 
-        img = hv.Image((lons, lats, data), [self.coord_names[-1], self.coord_names[-2]])
+        img = hv.Image((lons, lats, data.values), [self.coord_names[-1], self.coord_names[-2]])
         img.opts(
             cmap=colormap,
             title=title,
@@ -57,29 +57,29 @@ class ThreeDNode(FigureNode):
 
     def next_slice(self):
         self.coord_idx = (self.coord_idx + 1) % len(self.data[self.coord_names[0]])
-        self.update_stream.event()
+        self.update_stream.event(counter=self.update_stream.counter + 1)
         return self.coord_idx
     
     def prev_slice(self):
         self.coord_idx = (self.coord_idx - 1) % len(self.data[self.coord_names[0]])
-        self.update_stream.event()
+        self.update_stream.event(counter=self.update_stream.counter + 1)
         return self.coord_idx
 
     def set_coord_idx(self, coord_idx):
         self.coord_idx = coord_idx
-        self.update_stream.event()
+        self.update_stream.event(counter=self.update_stream.counter + 1)
         
     def get_coord_idx(self):
         return self.coord_idx
 
     def first_slice(self):
         self.coord_idx = 0
-        self.update_stream.event()
+        self.update_stream.event(counter=self.update_stream.counter + 1)
         return self.coord_idx
 
     def last_slice(self):
         self.coord_idx = len(self.data[self.coord_names[0]]) - 1
-        self.update_stream.event()
+        self.update_stream.event(counter=self.update_stream.counter + 1)
         return self.coord_idx
 
     def get_controls(self):

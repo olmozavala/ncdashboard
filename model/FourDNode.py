@@ -19,7 +19,7 @@ class FourDNode(ThreeDNode):
         self.depth_coord_name = data.coords[self.coord_names[1]].name
         logger.info(f"Created FourDNode: id={id}, shape={data.shape}, coords={self.coord_names}")
 
-    def _render_plot(self, **kwargs):
+    def _render_plot(self, counter=0, **kwargs):
         colormap = self.cmap
         data = self.data  # Because it is 4D we assume the spatial coordinates are the last 2
         times, zaxis, lats, lons = get_all_coords(data)
@@ -32,7 +32,7 @@ class FourDNode(ThreeDNode):
 
         title = f'{self.title} at {self.coord_names[0].capitalize()} {self.coord_idx} and {self.coord_names[1].capitalize()} {self.depth_idx}'
         
-        img = hv.Image((lons, lats, current_slice), [self.coord_names[-1], self.coord_names[-2]])
+        img = hv.Image((lons, lats, current_slice.values), [self.coord_names[-1], self.coord_names[-2]])
         img.opts(
             cmap=colormap,
             title=title,
