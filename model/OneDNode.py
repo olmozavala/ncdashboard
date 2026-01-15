@@ -5,8 +5,9 @@ import numpy as np
 import holoviews as hv
 import panel as pn
 
-from model.TreeNode import FigureNode
+from model.FigureNode import FigureNode
 from model.model_utils import PlotType, get_all_coords
+from loguru import logger
 
 
 class OneDNode(FigureNode):
@@ -14,10 +15,11 @@ class OneDNode(FigureNode):
     # It also sets the animation coordinate and the resolution of the animation.
     # Eventhough the 1st dimensions may not be time, we are still calling it like that. 
     def __init__(self, id, data, title=None, field_name=None, 
-                 bbox=None, plot_type = PlotType.FourD, parent=None,  cmap=None):
+                 bbox=None, plot_type=PlotType.OneD, parent=None):
 
-        super().__init__(id, data, title=title, field_name=field_name, bbox=bbox, 
-                         plot_type=plot_type, parent=parent, cmap=cmap)
+        super().__init__(id, data, title=title, field_name=field_name, 
+                         bbox=bbox, plot_type=plot_type, parent=parent)
+        logger.info(f"Created OneDNode: id={id}, shape={data.shape}, coords={self.coord_names}")
 
     def create_figure(self):
         dims = self.data.dims  # Get the list of dimensions

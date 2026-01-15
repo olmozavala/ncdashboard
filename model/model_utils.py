@@ -89,6 +89,7 @@ class PlotType(Enum):
     TwoD = 2
     ThreeD = 3
     FourD = 4
+    Profile = 5
     OneD_Animation = 15
     TwoD_Animation = 16
     ThreeD_Animation = 17

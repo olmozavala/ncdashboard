@@ -4,6 +4,7 @@
 import holoviews as hv
 from model.ThreeDNode import ThreeDNode
 from model.model_utils import PlotType, get_all_coords
+from loguru import logger
 
 class FourDNode(ThreeDNode):
     # This is the constructor for the AnimationNode class. It calls its parent's constructor.
@@ -16,6 +17,7 @@ class FourDNode(ThreeDNode):
         
         self.depth_idx = depth_idx
         self.depth_coord_name = data.coords[self.coord_names[1]].name
+        logger.info(f"Created FourDNode: id={id}, shape={data.shape}, coords={self.coord_names}")
 
     def create_figure(self):
         colormap = self.cmap
@@ -24,7 +26,6 @@ class FourDNode(ThreeDNode):
         lats = lats.values
         lons = lons.values
 
-        # print(f"Time: {self.time_idx}, Depth: {self.depth_idx}")  
         if self.plot_type == PlotType.FourD:
             current_slice = data[self.time_idx, self.depth_idx,:,:]
 

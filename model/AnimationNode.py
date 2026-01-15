@@ -5,7 +5,7 @@ import numpy as np
 import holoviews as hv
 import panel as pn
 
-from model.TreeNode import FigureNode
+from model.FigureNode import FigureNode
 from model.model_utils import PlotType, Resolutions
 
 class AnimationNode(FigureNode):
@@ -16,6 +16,7 @@ class AnimationNode(FigureNode):
 
         super().__init__(id, data, title=title, field_name=field_name, bbox=bbox, 
                          plot_type=plot_type, parent=parent, cmap=cmap)
+        logger.info(f"Created AnimationNode: id={id}, shape={data.shape}, coords={self.coord_names}, cmap={cmap}")
 
         self.animation_coord = animation_coord
         self.spatial_res = resolution

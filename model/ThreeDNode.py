@@ -4,20 +4,22 @@
 import holoviews as hv
 import panel as pn
 
-from model.TreeNode import FigureNode
+from model.FigureNode import FigureNode
 from model.model_utils import PlotType, get_all_coords
+from loguru import logger
 
 class ThreeDNode(FigureNode):
     # This is the constructor for the AnimationNode class. It calls its parent's constructor.
     # It also sets the animation coordinate and the resolution of the animation.
     # Eventhough the 1st dimensions may not be time, we are still calling it like that. 
-    def __init__(self, id, data, time_idx, title=None, field_name=None, 
-                 bbox=None, plot_type = PlotType.FourD, parent=None,  cmap=None):
+    def __init__(self, id, data, time_idx=0, plot_type=PlotType.ThreeD, 
+                 title=None, field_name=None, bbox=None, parent=None):
 
-        super().__init__(id, data, title=title, field_name=field_name, bbox=bbox, 
-                         plot_type=plot_type, parent=parent, cmap=cmap)
+        super().__init__(id, data, title=title, field_name=field_name, 
+                         bbox=bbox, plot_type=plot_type, parent=parent)
 
         self.time_idx = time_idx
+        logger.info(f"Created ThreeDNode: id={id}, shape={data.shape}, coords={self.coord_names}")
         self.time_coord_name = data.coords[self.coord_names[0]].name
 
     def create_figure(self):

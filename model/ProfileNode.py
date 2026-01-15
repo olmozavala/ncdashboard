@@ -6,27 +6,30 @@ import numpy as np
 import holoviews as hv
 import panel as pn
 
-from model.TreeNode import FigureNode
+from model.FigureNode import FigureNode
 from model.model_utils import PlotType, Resolutions
 
 
+from loguru import logger
+
 class ProfileNode(FigureNode):
 
-    def __init__(self, id, data, lat, lon, profile_coord, title=None, field_name=None, 
-                 bbox=None, plot_type = PlotType.OneD, parent=None,  cmap=None):
+    def __init__(self, id, data, lat, lon, dim_prof, title=None, field_name=None, 
+                 bbox=None, plot_type=PlotType.Profile, parent=None):
 
         super().__init__(id, data, title=title, field_name=field_name, bbox=bbox, 
-                         plot_type=plot_type, parent=parent, cmap=cmap)
+                         plot_type=plot_type, parent=parent)
 
         self.lat = lat
         self.lon = lon
-        self.profile_coord = profile_coord
+        self.dim_prof = dim_prof
+        logger.info(f"Created ProfileNode: id={id}, lat={lat}, lon={lon}, dim={dim_prof}, shape={data.shape}")
 
     def create_figure(self):
         
         dims = self.data.dims  # Get the list of dimensions
         profile = self.data.values  # Get the values of the data
-        coordinate = self.data.coords[self.profile_coord]  # Get the coordinate
+        coordinate = self.data.coords[self.dim_prof]  # Get the coordinate
 
         # Get the units of the coordinate
         try:
