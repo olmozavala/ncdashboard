@@ -75,10 +75,9 @@ class FigureNode(ABC):
     def create_figure(self):
         pass
 
-    def get_controls(self, callback):
+    def get_controls(self):
         '''
         Returns a set of controls for the node.
-        callback: A function that should be called when a control is triggered to update the plot.
         '''
         return None
 

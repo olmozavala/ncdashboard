@@ -19,7 +19,7 @@ class FourDNode(ThreeDNode):
         self.depth_coord_name = data.coords[self.coord_names[1]].name
         logger.info(f"Created FourDNode: id={id}, shape={data.shape}, coords={self.coord_names}")
 
-    def create_figure(self):
+    def _render_plot(self, **kwargs):
         colormap = self.cmap
         data = self.data  # Because it is 4D we assume the spatial coordinates are the last 2
         times, zaxis, lats, lons = get_all_coords(data)
@@ -46,14 +46,17 @@ class FourDNode(ThreeDNode):
     # Next time and depth functions are used to update the time and depth indices.
     def next_depth(self):
         self.depth_idx = (self.depth_idx + 1) % len(self.data[self.depth_coord_name])
+        self.update_stream.event()
         return self.depth_idx
     
     def prev_depth(self):
         self.depth_idx = (self.depth_idx - 1) % len(self.data[self.depth_coord_name])
+        self.update_stream.event()
         return self.depth_idx
 
     def set_depth_idx(self, depth_idx):
         self.depth_idx = depth_idx
+        self.update_stream.event()
     
     def get_depth_idx(self):
         return self.depth_idx

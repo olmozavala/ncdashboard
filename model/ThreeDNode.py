@@ -21,8 +21,11 @@ class ThreeDNode(FigureNode):
         self.coord_idx = coord_idx
         logger.info(f"Created ThreeDNode: id={id}, shape={data.shape}, coords={self.coord_names}")
         self.third_coord_name = data.coords[self.coord_names[0]].name
+        
+        # Stream for dynamic updates
+        self.update_stream = hv.streams.Stream.define('Update')()
 
-    def create_figure(self):
+    def _render_plot(self, **kwargs):
         colormap = self.cmap
         
         data = self.data
@@ -48,29 +51,38 @@ class ThreeDNode(FigureNode):
         )
         return img
 
+    def create_figure(self):
+        # Return a DynamicMap that updates when update_stream is triggered
+        return hv.DynamicMap(self._render_plot, streams=[self.update_stream])
+
     def next_slice(self):
         self.coord_idx = (self.coord_idx + 1) % len(self.data[self.coord_names[0]])
+        self.update_stream.event()
         return self.coord_idx
     
     def prev_slice(self):
         self.coord_idx = (self.coord_idx - 1) % len(self.data[self.coord_names[0]])
+        self.update_stream.event()
         return self.coord_idx
 
     def set_coord_idx(self, coord_idx):
         self.coord_idx = coord_idx
+        self.update_stream.event()
         
     def get_coord_idx(self):
         return self.coord_idx
 
     def first_slice(self):
         self.coord_idx = 0
+        self.update_stream.event()
         return self.coord_idx
 
     def last_slice(self):
         self.coord_idx = len(self.data[self.coord_names[0]]) - 1
+        self.update_stream.event()
         return self.coord_idx
 
-    def get_controls(self, callback):
+    def get_controls(self):
         btn_style = {'margin': '0px 2px'}
         # Using FontAwesome icons as requested
         btn_first = pn.widgets.Button(name="\u00ab", icon="angles-left", width=40, height=30, styles=btn_style)
@@ -80,19 +92,15 @@ class ThreeDNode(FigureNode):
 
         def on_first(event):
             self.first_slice()
-            callback()
         
         def on_prev(event):
             self.prev_slice()
-            callback()
 
         def on_next(event):
             self.next_slice()
-            callback()
 
         def on_last(event):
             self.last_slice()
-            callback()
 
         btn_first.on_click(on_first)
         btn_prev.on_click(on_prev)
