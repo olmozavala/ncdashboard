@@ -61,3 +61,48 @@ class ThreeDNode(FigureNode):
         
     def get_coord_idx(self):
         return self.coord_idx
+
+    def first_slice(self):
+        self.coord_idx = 0
+        return self.coord_idx
+
+    def last_slice(self):
+        self.coord_idx = len(self.data[self.coord_names[0]]) - 1
+        return self.coord_idx
+
+    def get_controls(self, callback):
+        btn_style = {'margin': '0px 2px'}
+        # Using FontAwesome icons as requested
+        btn_first = pn.widgets.Button(icon="angles-left", width=40, height=30, styles=btn_style)
+        btn_prev = pn.widgets.Button(icon="angle-left", width=40, height=30, styles=btn_style)
+        btn_next = pn.widgets.Button(icon="angle-right", width=40, height=30, styles=btn_style)
+        btn_last = pn.widgets.Button(icon="angles-right", width=40, height=30, styles=btn_style)
+
+        def on_first(event):
+            self.first_slice()
+            callback()
+        
+        def on_prev(event):
+            self.prev_slice()
+            callback()
+
+        def on_next(event):
+            self.next_slice()
+            callback()
+
+        def on_last(event):
+            self.last_slice()
+            callback()
+
+        btn_first.on_click(on_first)
+        btn_prev.on_click(on_prev)
+        btn_next.on_click(on_next)
+        btn_last.on_click(on_last)
+        
+        nav_row = pn.Row(
+            pn.layout.HSpacer(),
+            btn_first, btn_prev, btn_next, btn_last,
+            pn.layout.HSpacer(),
+            align='center'
+        )
+        return nav_row

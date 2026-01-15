@@ -130,7 +130,20 @@ class Dashboard:
 
         close_btn.on_click(close_action)
         
+        # Navigation Buttons for 3D/4D
+        # Navigation Buttons (Delegated to Node)
+        def update_plot():
+            new_hv_obj = new_node.create_figure()
+            pane.object = new_hv_obj
+            # Update the stream source so drill-down works on new slice
+            if 'tap' in locals() and tap is not None:
+                tap.source = new_hv_obj
+
+        nav_row = new_node.get_controls(update_plot)
+
         container.extend([header_row, pane])
+        if nav_row:
+             container.append(nav_row)
         
         return container
 
