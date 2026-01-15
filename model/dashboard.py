@@ -99,7 +99,7 @@ class Dashboard:
 
         # Create Panel container
         # We wrap in a Pane to ensure it renders correctly
-        pane = pn.pane.HoloViews(hv_obj, sizing_mode='stretch_both')
+        pane = pn.pane.HoloViews(hv_obj, sizing_mode='stretch_width')
         
         container = pn.Column(
             sizing_mode='fixed', # Allow FlexBox to wrap it

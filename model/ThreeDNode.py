@@ -73,10 +73,10 @@ class ThreeDNode(FigureNode):
     def get_controls(self, callback):
         btn_style = {'margin': '0px 2px'}
         # Using FontAwesome icons as requested
-        btn_first = pn.widgets.Button(icon="angles-left", width=40, height=30, styles=btn_style)
-        btn_prev = pn.widgets.Button(icon="angle-left", width=40, height=30, styles=btn_style)
-        btn_next = pn.widgets.Button(icon="angle-right", width=40, height=30, styles=btn_style)
-        btn_last = pn.widgets.Button(icon="angles-right", width=40, height=30, styles=btn_style)
+        btn_first = pn.widgets.Button(name="\u00ab", icon="angles-left", width=40, height=30, styles=btn_style)
+        btn_prev = pn.widgets.Button(name="\u2039", icon="angle-left", width=40, height=30, styles=btn_style)
+        btn_next = pn.widgets.Button(name="\u203a", icon="angle-right", width=40, height=30, styles=btn_style)
+        btn_last = pn.widgets.Button(name="\u00bb", icon="angles-right", width=40, height=30, styles=btn_style)
 
         def on_first(event):
             self.first_slice()
