@@ -6,7 +6,8 @@ from model.FourDNode import FourDNode
 from model.OneDNode import OneDNode
 from model.ProfileNode import ProfileNode
 from model.ThreeDNode import ThreeDNode
-from model.TreeNode import FigureNode
+from model.TwoDNode import TwoDNode
+from model.FigureNode import FigureNode
 import panel as pn
 import holoviews as hv
 from model.model_utils import PlotType, select_profile, select_spatial_location
@@ -23,7 +24,7 @@ class Dashboard:
         else:
             data = xr.open_mfdataset(join(self.path, self.regex), decode_times=False)
 
-        self.tree_root = FigureNode('root', data=data, parent=None)
+        self.tree_root = TwoDNode('root', data=data, parent=None)
         
         # Identify field dimensions
         self.four_d = []
@@ -35,12 +36,16 @@ class Dashboard:
             shape_len = len(data[var].shape)
             if shape_len == 4:
                 self.four_d.append(var)
+                logger.info(f"Variable {var} added to 4D list")
             elif shape_len == 3:
                 self.three_d.append(var)
+                logger.info(f"Variable {var} added to 3D list")
             elif shape_len == 2:
                 self.two_d.append(var)
+                logger.info(f"Variable {var} added to 2D list")
             elif shape_len == 1:
                 self.one_d.append(var)
+                logger.info(f"Variable {var} added to 1D list")
         
         self.data = data
 
@@ -72,7 +77,7 @@ class Dashboard:
                 new_node = OneDNode(id, self.data[c_field], plot_type=plot_type, field_name=c_field, 
                                         parent=self.tree_root)
             else: 
-                new_node = FigureNode(id, self.data[c_field], plot_type=plot_type, field_name=c_field, 
+                new_node = TwoDNode(id, self.data[c_field], plot_type=plot_type, field_name=c_field, 
                                         parent=self.tree_root)
 
             self.tree_root.add_child(new_node) 
