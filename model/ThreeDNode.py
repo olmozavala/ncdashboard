@@ -13,10 +13,10 @@ class ThreeDNode(FigureNode):
     # It also sets the animation coordinate and the resolution of the animation.
     # Eventhough the 1st dimensions may not be time, we are still calling it like that. 
     def __init__(self, id, data, time_idx=0, plot_type=PlotType.ThreeD, 
-                 title=None, field_name=None, bbox=None, parent=None):
+                 title=None, field_name=None, bbox=None, parent=None, cmap=None):
 
         super().__init__(id, data, title=title, field_name=field_name, 
-                         bbox=bbox, plot_type=plot_type, parent=parent)
+                         bbox=bbox, plot_type=plot_type, parent=parent, cmap=cmap)
 
         self.time_idx = time_idx
         logger.info(f"Created ThreeDNode: id={id}, shape={data.shape}, coords={self.coord_names}")
