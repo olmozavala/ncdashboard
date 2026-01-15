@@ -12,15 +12,15 @@ class ThreeDNode(FigureNode):
     # This is the constructor for the AnimationNode class. It calls its parent's constructor.
     # It also sets the animation coordinate and the resolution of the animation.
     # Eventhough the 1st dimensions may not be time, we are still calling it like that. 
-    def __init__(self, id, data, time_idx=0, plot_type=PlotType.ThreeD, 
+    def __init__(self, id, data, coord_idx=0, plot_type=PlotType.ThreeD, 
                  title=None, field_name=None, bbox=None, parent=None, cmap=None):
 
         super().__init__(id, data, title=title, field_name=field_name, 
                          bbox=bbox, plot_type=plot_type, parent=parent, cmap=cmap)
 
-        self.time_idx = time_idx
+        self.coord_idx = coord_idx
         logger.info(f"Created ThreeDNode: id={id}, shape={data.shape}, coords={self.coord_names}")
-        self.time_coord_name = data.coords[self.coord_names[0]].name
+        self.third_coord_name = data.coords[self.coord_names[0]].name
 
     def create_figure(self):
         colormap = self.cmap
@@ -29,13 +29,13 @@ class ThreeDNode(FigureNode):
         if self.plot_type == PlotType.ThreeD:
             # We assume logical structure [time, lat, lon] for 3D
             # Select the time slice
-            data = self.data[self.time_idx, :, :]
+            data = self.data[self.coord_idx, :, :]
 
         # We assume the last two coordinates are spatial (lat, lon)
         lats = data.coords[self.coord_names[-2]].values
         lons = data.coords[self.coord_names[-1]].values
 
-        title = f'{self.title} at {self.coord_names[0].capitalize()} {self.time_idx}'
+        title = f'{self.title} at {self.coord_names[0].capitalize()} {self.coord_idx}'
 
         img = hv.Image((lons, lats, data), [self.coord_names[-1], self.coord_names[-2]])
         img.opts(
@@ -48,16 +48,16 @@ class ThreeDNode(FigureNode):
         )
         return img
 
-    def next_time(self):
-        self.time_idx = (self.time_idx + 1) % len(self.data[self.coord_names[0]])
-        return self.time_idx
+    def next_slice(self):
+        self.coord_idx = (self.coord_idx + 1) % len(self.data[self.coord_names[0]])
+        return self.coord_idx
     
-    def prev_time(self):
-        self.time_idx = (self.time_idx - 1) % len(self.data[self.coord_names[0]])
-        return self.time_idx
+    def prev_slice(self):
+        self.coord_idx = (self.coord_idx - 1) % len(self.data[self.coord_names[0]])
+        return self.coord_idx
 
-    def set_time_idx(self, time_idx):
-        self.time_idx = time_idx
+    def set_coord_idx(self, coord_idx):
+        self.coord_idx = coord_idx
         
-    def get_time_idx(self):
-        return self.time_idx
+    def get_coord_idx(self):
+        return self.coord_idx

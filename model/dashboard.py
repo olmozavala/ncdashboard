@@ -68,7 +68,7 @@ class Dashboard:
             id = self.id_generator(c_field)
 
             if plot_type == PlotType.ThreeD:
-                new_node = ThreeDNode(id, self.data[c_field], time_idx=0,
+                new_node = ThreeDNode(id, self.data[c_field], coord_idx=0,
                                         plot_type=plot_type, field_name=c_field, parent=self.tree_root)
             elif plot_type == PlotType.FourD:
                 new_node = FourDNode(id, self.data[c_field], time_idx=0, depth_idx=0, 

@@ -12,7 +12,7 @@ class FourDNode(ThreeDNode):
     # Eventhough the 1st and 2nd dimensions may not be time and depth, we are still calling it like that. 
     def __init__(self, id, data, time_idx, depth_idx, title=None, field_name=None, 
                  bbox=None, plot_type = PlotType.FourD, parent=None,  cmap=None):
-        super().__init__(id, data, time_idx, title=title, field_name=field_name,
+        super().__init__(id, data, coord_idx=time_idx, title=title, field_name=field_name,
                             bbox=bbox, plot_type=plot_type, parent=parent, cmap=cmap)
         
         self.depth_idx = depth_idx
@@ -27,9 +27,10 @@ class FourDNode(ThreeDNode):
         lons = lons.values
 
         if self.plot_type == PlotType.FourD:
-            current_slice = data[self.time_idx, self.depth_idx,:,:]
+            # We use self.coord_idx (from parent) for the first dimension (Time)
+            current_slice = data[self.coord_idx, self.depth_idx,:,:]
 
-        title = f'{self.title} at {self.coord_names[0].capitalize()} {self.time_idx} and {self.coord_names[1].capitalize()} {self.depth_idx}'
+        title = f'{self.title} at {self.coord_names[0].capitalize()} {self.coord_idx} and {self.coord_names[1].capitalize()} {self.depth_idx}'
         
         img = hv.Image((lons, lats, current_slice), [self.coord_names[-1], self.coord_names[-2]])
         img.opts(
