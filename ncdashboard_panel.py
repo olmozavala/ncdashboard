@@ -17,8 +17,13 @@ from loguru import logger
 from docopt import docopt
 from model.dashboard import Dashboard
 
+import holoviews as hv
+import geoviews as gv
+
 # Initialize Panel extension using Bootstrap
 pn.extension(design='bootstrap')
+hv.extension('bokeh')
+gv.extension('bokeh')
 
 class NcDashboard:
     def __init__(self, file_paths, regex, host='127.0.0.1', port=8050):

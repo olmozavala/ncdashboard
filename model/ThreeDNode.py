@@ -2,7 +2,10 @@
 # It is used to create a node that can be used plot 4D data.
 
 import holoviews as hv
+import geoviews as gv
 import panel as pn
+import cartopy.crs as ccrs
+from holoviews.operation.datashader import rasterize
 
 from model.FigureNode import FigureNode
 from model.model_utils import PlotType, get_all_coords
@@ -40,20 +43,44 @@ class ThreeDNode(FigureNode):
 
         title = f'{self.title} at {self.coord_names[0].capitalize()} {self.third_coord_idx}'
 
-        img = hv.Image((lons, lats, data.values), [self.coord_names[-1], self.coord_names[-2]])
-        img.opts(
-            cmap=colormap,
-            title=title,
-            tools=['hover'],
-            colorbar=True,
-            responsive=True,
-            aspect='equal'
-        )
-        return img
+        # Use geoviews Image for geographic plotting
+        img = gv.Image((lons, lats, data.values), [self.coord_names[-1], self.coord_names[-2]], crs=ccrs.PlateCarree())
+        return img.opts(title=title, cmap=colormap)
 
     def create_figure(self):
-        # Return a DynamicMap that updates when update_stream is triggered
-        return hv.DynamicMap(self._render_plot, streams=[self.update_stream])
+        # Create a stream for the plot range to allow re-rasterization on zoom
+        self.range_stream = hv.streams.RangeXY()
+        
+        # We wrap the rendering, rasterization and tiles in a single DynamicMap 
+        # to avoid nesting DynamicMaps (which happens if you rasterize a DynamicMap 
+        # and then overlay it with tiles in some Panel/HoloViews versions).
+        
+        def dynamic_plot(counter=0, x_range=None, y_range=None):
+            # 1. Get the base plot for the current slice
+            img = self._render_plot(counter=counter)
+            
+            # 2. Apply rasterization. 
+            rasterized = rasterize(img, x_range=x_range, y_range=y_range, dynamic=False).opts(
+                cmap=self.cmap,
+                colorbar=True,
+                tools=['hover']
+            )
+            
+            # 3. Add tiles
+            tiles = gv.tile_sources.OSM()
+            return (tiles * rasterized).opts(
+                responsive=True,
+                aspect='equal'
+            )
+
+        self.dmap = hv.DynamicMap(dynamic_plot, streams=[self.update_stream, self.range_stream])
+        
+        return self.dmap.opts(active_tools=['wheel_zoom', 'pan'])
+
+    def get_stream_source(self):
+        if not hasattr(self, 'dmap'):
+            self.create_figure()
+        return self.dmap
 
     def next_slice(self):
         self.third_coord_idx = (self.third_coord_idx + 1) % len(self.data[self.coord_names[0]])

@@ -59,7 +59,10 @@ class Dashboard:
         elif plot_type == PlotType.ThreeD: dims_str = "3D"
         elif plot_type == PlotType.TwoD: dims_str = "2D"
         elif plot_type == PlotType.OneD: dims_str = "1D"
-        
+        # Get field name if not provided
+        if c_field is None and new_node is not None:
+            c_field = new_node.get_field_name()
+            
         # Get data shape for logging
         shape_str = str(self.data[c_field].shape)
         logger.info(f"Creating new plot - Dimensions: {dims_str}, Field: {c_field}, Shape: {shape_str}")
@@ -87,7 +90,8 @@ class Dashboard:
         
         # Setup Tap stream for 2D/3D/4D plots (Drill Down)
         if plot_type in [PlotType.TwoD, PlotType.ThreeD, PlotType.FourD, PlotType.ThreeD_Animation, PlotType.FourD_Animation]:
-            tap = hv.streams.Tap(source=hv_obj)
+            stream_source = new_node.get_stream_source()
+            tap = hv.streams.Tap(source=stream_source)
             
             def tap_callback(x, y):
                 if x is None or y is None: 

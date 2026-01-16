@@ -75,6 +75,13 @@ class FigureNode(ABC):
     def create_figure(self):
         pass
 
+    def get_stream_source(self):
+        '''
+        Returns the HoloViews object that should be used as source for streams.
+        By default it returns the same as create_figure().
+        '''
+        return self.create_figure()
+
     def get_controls(self):
         '''
         Returns a set of controls for the node.
