@@ -38,7 +38,7 @@ class FigureNode(ABC):
         else:
             self.title = title
 
-        self.coord_names = np.array(list(data.coords.keys())) # type: ignorechildren
+        self.coord_names = np.array(list(data.dims)) 
         # TODO Move outside of constructor
 
         self.plot_type = plot_type
@@ -109,7 +109,7 @@ class FigureNode(ABC):
         return self.parent
 
     def get_coord_names(self):
-        return list(self.data.coords.keys())
+        return list(self.data.dims)
 
     def get_field_name(self):
         return self.field_name

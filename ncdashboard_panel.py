@@ -1,5 +1,20 @@
+"""NcDashboard Panel Options
+
+Usage:
+  ncdashboard_panel.py  <path>
+  ncdashboard_panel.py  <path> --regex <regex>
+  ncdashboard_panel.py  <path> --regex <regex> --port <port> --host <host>
+  ncdashboard_panel.py (-h | --help)
+  ncdashboard_panel.py --version
+
+Options:
+  -h --help     Show this screen.
+  --version     Show version.
+  <path>  NetCDF file or regular expression to explore. 
+"""
 import panel as pn
 from loguru import logger
+from docopt import docopt
 from model.dashboard import Dashboard
 
 # Initialize Panel extension using Bootstrap
@@ -106,3 +121,21 @@ class NcDashboard:
         # Pass self.main_area so the figure knows where to add drill-down plots or remove itself
         fig_pane = self.ncdash.create_default_figure(field, ptype, layout_container=self.main_area)
         self.main_area.append(fig_pane)
+
+if __name__ == "__main__":
+    args = docopt(__doc__, version='NcDashboard Panel 0.0.1')
+    path = args['<path>']
+    regex = args['<regex>']
+    port = args['<port>']
+    host = args['<host>']
+    
+    if port:
+        port = int(port)
+    else:
+        port = 8050
+
+    if not host:
+        host = '127.0.0.1'
+
+    ncdashboard = NcDashboard(path, regex or '', host=host, port=port)
+    ncdashboard.start()

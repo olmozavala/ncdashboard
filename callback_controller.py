@@ -1,1 +1,0 @@
-def close_plot(ncdash, node_id, )

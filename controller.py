@@ -67,7 +67,7 @@ class NcDashboard:
         self.register_callbacks()
 
     def start(self):
-        self.app.run_server(debug=False, port=self.port, host=self.host)
+        self.app.run(debug=False, port=self.port, host=self.host)
 
     def initial_menu(self):
         return [
@@ -133,10 +133,8 @@ class NcDashboard:
                 print(f"Window Width: {width}, Window Height: {height}")
 
             triggered_id = ctx.triggered_id
-            print(f'Type: {type(triggered_id)}, Value: {triggered_id}')
-
-            print(f'1D: {selected_1d}, 2D: {selected_2d}, 3D: {selected_3d}, 4D: {selected_4d}')
-            # Check the one trigered was but_plot_all
+            logging.info(f'Callback triggered by: {triggered_id}')
+            logging.info(f'Selections - 1D: {selected_1d}, 2D: {selected_2d}, 3D: {selected_3d}, 4D: {selected_4d}')
 
             patch = Patch()
             plot_types = [PlotType.OneD, PlotType.TwoD, PlotType.ThreeD, PlotType.FourD]
@@ -151,8 +149,10 @@ class NcDashboard:
                     if selected!= None and len(selected) > 0:
 
                         for c_field in selected:
+                            logging.info(f'Creating figure for field: {c_field} with type: {plot_types[i]}')
                             new_figure = self.ncdash.create_default_figure(c_field, plot_types[i])
                             patch.append(new_figure)
+                            logging.info(f'Appended figure for {c_field} to patch')
 
             # Closing a plot
             elif type(triggered_id) == dash._utils.AttributeDict and triggered_id['type'] == 'close_figure': # type: ignore

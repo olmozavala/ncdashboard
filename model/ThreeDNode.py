@@ -12,13 +12,13 @@ class ThreeDNode(FigureNode):
     # This is the constructor for the AnimationNode class. It calls its parent's constructor.
     # It also sets the animation coordinate and the resolution of the animation.
     # Eventhough the 1st dimensions may not be time, we are still calling it like that. 
-    def __init__(self, id, data, coord_idx=0, plot_type=PlotType.ThreeD, 
+    def __init__(self, id, data, third_coord_idx=0, plot_type=PlotType.ThreeD, 
                  title=None, field_name=None, bbox=None, parent=None, cmap=None):
 
         super().__init__(id, data, title=title, field_name=field_name, 
                          bbox=bbox, plot_type=plot_type, parent=parent, cmap=cmap)
 
-        self.coord_idx = coord_idx
+        self.third_coord_idx = third_coord_idx
         logger.info(f"Created ThreeDNode: id={id}, shape={data.shape}, coords={self.coord_names}")
         self.third_coord_name = data.coords[self.coord_names[0]].name
         
@@ -32,13 +32,13 @@ class ThreeDNode(FigureNode):
         if self.plot_type == PlotType.ThreeD:
             # We assume logical structure [time, lat, lon] for 3D
             # Select the time slice
-            data = self.data[self.coord_idx, :, :]
+            data = self.data[self.third_coord_idx, :, :]
 
         # We assume the last two coordinates are spatial (lat, lon)
         lats = data.coords[self.coord_names[-2]].values
         lons = data.coords[self.coord_names[-1]].values
 
-        title = f'{self.title} at {self.coord_names[0].capitalize()} {self.coord_idx}'
+        title = f'{self.title} at {self.coord_names[0].capitalize()} {self.third_coord_idx}'
 
         img = hv.Image((lons, lats, data.values), [self.coord_names[-1], self.coord_names[-2]])
         img.opts(
@@ -56,61 +56,55 @@ class ThreeDNode(FigureNode):
         return hv.DynamicMap(self._render_plot, streams=[self.update_stream])
 
     def next_slice(self):
-        self.coord_idx = (self.coord_idx + 1) % len(self.data[self.coord_names[0]])
+        self.third_coord_idx = (self.third_coord_idx + 1) % len(self.data[self.coord_names[0]])
         self.update_stream.event(counter=self.update_stream.counter + 1)
-        return self.coord_idx
+        return self.third_coord_idx
     
     def prev_slice(self):
-        self.coord_idx = (self.coord_idx - 1) % len(self.data[self.coord_names[0]])
+        self.third_coord_idx = (self.third_coord_idx - 1) % len(self.data[self.coord_names[0]])
         self.update_stream.event(counter=self.update_stream.counter + 1)
-        return self.coord_idx
+        return self.third_coord_idx
 
-    def set_coord_idx(self, coord_idx):
-        self.coord_idx = coord_idx
+    def set_third_coord_idx(self, third_coord_idx):
+        self.third_coord_idx = third_coord_idx
         self.update_stream.event(counter=self.update_stream.counter + 1)
         
-    def get_coord_idx(self):
-        return self.coord_idx
+    def get_third_coord_idx(self):
+        return self.third_coord_idx
 
     def first_slice(self):
-        self.coord_idx = 0
+        self.third_coord_idx = 0
         self.update_stream.event(counter=self.update_stream.counter + 1)
-        return self.coord_idx
+        return self.third_coord_idx
 
     def last_slice(self):
-        self.coord_idx = len(self.data[self.coord_names[0]]) - 1
+        self.third_coord_idx = len(self.data[self.coord_names[0]]) - 1
         self.update_stream.event(counter=self.update_stream.counter + 1)
-        return self.coord_idx
+        return self.third_coord_idx
 
-    def get_controls(self):
+    def _make_nav_controls(self, first_cb, prev_cb, next_cb, last_cb, label=None):
         btn_style = {'margin': '0px 2px'}
-        # Using FontAwesome icons as requested
         btn_first = pn.widgets.Button(name="\u00ab", icon="angles-left", width=40, height=30, styles=btn_style)
         btn_prev = pn.widgets.Button(name="\u2039", icon="angle-left", width=40, height=30, styles=btn_style)
         btn_next = pn.widgets.Button(name="\u203a", icon="angle-right", width=40, height=30, styles=btn_style)
         btn_last = pn.widgets.Button(name="\u00bb", icon="angles-right", width=40, height=30, styles=btn_style)
 
-        def on_first(event):
-            self.first_slice()
+        btn_first.on_click(lambda e: first_cb())
+        btn_prev.on_click(lambda e: prev_cb())
+        btn_next.on_click(lambda e: next_cb())
+        btn_last.on_click(lambda e: last_cb())
         
-        def on_prev(event):
-            self.prev_slice()
-
-        def on_next(event):
-            self.next_slice()
-
-        def on_last(event):
-            self.last_slice()
-
-        btn_first.on_click(on_first)
-        btn_prev.on_click(on_prev)
-        btn_next.on_click(on_next)
-        btn_last.on_click(on_last)
+        row_content = [pn.layout.HSpacer()]
+        if label:
+            row_content.append(pn.pane.Markdown(f"**{label}:**", align='center', margin=(0, 10)))
         
-        nav_row = pn.Row(
-            pn.layout.HSpacer(),
-            btn_first, btn_prev, btn_next, btn_last,
-            pn.layout.HSpacer(),
-            align='center'
+        row_content.extend([btn_first, btn_prev, btn_next, btn_last, pn.layout.HSpacer()])
+        
+        return pn.Row(*row_content, align='center')
+
+    def get_controls(self):
+        label = self.coord_names[0].capitalize() if len(self.coord_names) > 0 else "Slice"
+        return self._make_nav_controls(
+            self.first_slice, self.prev_slice, self.next_slice, self.last_slice,
+            label=label
         )
-        return nav_row

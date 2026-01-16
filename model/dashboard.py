@@ -68,7 +68,7 @@ class Dashboard:
             id = self.id_generator(c_field)
 
             if plot_type == PlotType.ThreeD:
-                new_node = ThreeDNode(id, self.data[c_field], coord_idx=0,
+                new_node = ThreeDNode(id, self.data[c_field], third_coord_idx=0,
                                         plot_type=plot_type, field_name=c_field, parent=self.tree_root)
             elif plot_type == PlotType.FourD:
                 new_node = FourDNode(id, self.data[c_field], time_idx=0, depth_idx=0, 
@@ -99,11 +99,12 @@ class Dashboard:
 
         # Create Panel container
         # We wrap in a Pane to ensure it renders correctly
-        pane = pn.pane.HoloViews(hv_obj, sizing_mode='stretch_width')
+        pane = pn.pane.HoloViews(hv_obj, sizing_mode='stretch_both', min_height=400)
         
         container = pn.Column(
             sizing_mode='fixed', # Allow FlexBox to wrap it
             width=600, # Approx half width of 1080p screen, or good size for 2-col
+            min_height=480,
             margin=(10, 10),
             styles={'background': '#f0f0f0', 'border-radius': '5px', 'padding': '10px'}
         )
