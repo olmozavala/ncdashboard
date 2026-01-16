@@ -48,34 +48,22 @@ class ThreeDNode(FigureNode):
         return img.opts(title=title, cmap=colormap)
 
     def create_figure(self):
-        # Create a stream for the plot range to allow re-rasterization on zoom
-        self.range_stream = hv.streams.RangeXY()
+        # Return a DynamicMap that updates when update_stream is triggered
+        self.dmap = hv.DynamicMap(self._render_plot, streams=[self.update_stream])
         
-        # We wrap the rendering, rasterization and tiles in a single DynamicMap 
-        # to avoid nesting DynamicMaps (which happens if you rasterize a DynamicMap 
-        # and then overlay it with tiles in some Panel/HoloViews versions).
-        
-        def dynamic_plot(counter=0, x_range=None, y_range=None):
-            # 1. Get the base plot for the current slice
-            img = self._render_plot(counter=counter)
-            
-            # 2. Apply rasterization. 
-            rasterized = rasterize(img, x_range=x_range, y_range=y_range, dynamic=False).opts(
-                cmap=self.cmap,
-                colorbar=True,
-                tools=['hover']
-            )
-            
-            # 3. Add tiles
-            tiles = gv.tile_sources.OSM()
-            return (tiles * rasterized).opts(
-                responsive=True,
-                aspect='equal'
-            )
+        # Apply rasterization to the DynamicMap
+        # usage of rasterize(dmap) handles zoom/pan coordinate transformation automatically
+        rasterized = rasterize(self.dmap).opts(
+            cmap=self.cmap,
+            tools=['hover'],
+            colorbar=True,
+            responsive=True,
+            aspect='equal'
+        )
 
-        self.dmap = hv.DynamicMap(dynamic_plot, streams=[self.update_stream, self.range_stream])
-        
-        return self.dmap.opts(active_tools=['wheel_zoom', 'pan'])
+        # Overlay with tiles
+        tiles = gv.tile_sources.OSM()
+        return (tiles * rasterized).opts(active_tools=['wheel_zoom', 'pan'])
 
     def get_stream_source(self):
         if not hasattr(self, 'dmap'):

@@ -17,9 +17,6 @@ class TwoDNode(FigureNode):
         logger.info(f"Created TwoDNode: id={id}, shape={shape_str}, coords={self.coord_names}")
 
     def create_figure(self):
-        # Create a stream for the plot range to allow re-rasterization on zoom
-        self.range_stream = hv.streams.RangeXY()
-        
         # Assume 2D data: [lat, lon] or [y, x]
         lats = self.data.coords[self.coord_names[-2]].values
         lons = self.data.coords[self.coord_names[-1]].values
@@ -27,24 +24,18 @@ class TwoDNode(FigureNode):
         # Base image
         self.img = gv.Image((lons, lats, self.data), [self.coord_names[-1], self.coord_names[-2]], crs=ccrs.PlateCarree())
 
-        def dynamic_plot(x_range=None, y_range=None):
-            # Apply rasterization
-            rasterized = rasterize(self.img, x_range=x_range, y_range=y_range, dynamic=False).opts(
-                cmap=self.cmap,
-                colorbar=True,
-                tools=['hover']
-            )
-            
-            # Add tiles
-            tiles = gv.tile_sources.OSM()
-            return (tiles * rasterized).opts(
-                title=self.title or self.id,
-                responsive=True,
-                aspect='equal'
-            )
+        # Apply rasterization
+        rasterized = rasterize(self.img).opts(
+            cmap=self.cmap,
+            tools=['hover'],
+            colorbar=True,
+            responsive=True,
+            aspect='equal'
+        )
 
-        self.dmap = hv.DynamicMap(dynamic_plot, streams=[self.range_stream])
-        return self.dmap.opts(active_tools=['wheel_zoom', 'pan'])
+        # Add tiles
+        tiles = gv.tile_sources.OSM()
+        return (tiles * rasterized).opts(active_tools=['wheel_zoom', 'pan'])
 
     def get_stream_source(self):
         if not hasattr(self, 'dmap'):
