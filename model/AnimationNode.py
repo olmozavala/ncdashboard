@@ -60,8 +60,10 @@ class AnimationNode(FigureNode):
             
         try:
             # Transform Web Mercator ranges to PlateCarree (Data CRS)
-            x0, y0 = ccrs.PlateCarree().transform_point(x_range[0], y_range[0], ccrs.GoogleTiles())
-            x1, y1 = ccrs.PlateCarree().transform_point(x_range[1], y_range[1], ccrs.GoogleTiles())
+            # Use ccrs.Mercator() as it matches the units (meters) of the stream
+            merc = ccrs.Mercator()
+            x0, y0 = ccrs.PlateCarree().transform_point(x_range[0], y_range[0], merc)
+            x1, y1 = ccrs.PlateCarree().transform_point(x_range[1], y_range[1], merc)
             
             # Identify lat/lon dims
             lat_dim = self.coord_names[-2]
@@ -103,6 +105,8 @@ class AnimationNode(FigureNode):
                 cmap=self.cmap,
                 colorbar=True,
                 tools=['hover'],
+                responsive=True,
+                aspect='equal',
                 title=f"{self.title or self.id} - {self.anim_coord_name}: {val}"
             )
         except Exception as e:
@@ -114,7 +118,6 @@ class AnimationNode(FigureNode):
         logger.info(f"Creating dynamic animation for {self.id}...")
         
         # Explicitly link player.param.value to the DynamicMap using a Params stream
-        # This is more robust in Panel/HoloViews applications
         stream = hv.streams.Params(self.player, ['value'])
         self.dmap = hv.DynamicMap(self._render_frame, streams=[stream])
         
@@ -123,6 +126,8 @@ class AnimationNode(FigureNode):
         
         return (tiles * self.dmap).opts(
             active_tools=['wheel_zoom', 'pan'],
+            responsive=True,
+            aspect='equal',
             title=self.title or self.id
         )
 
