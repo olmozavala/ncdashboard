@@ -24,6 +24,33 @@ class FourDNode(ThreeDNode):
         self.depth_coord_name = data.coords[self.coord_names[1]].name
         logger.info(f"Created FourDNode: id={id}, shape={data.shape}, coords={self.coord_names}")
 
+    def _animate_callback(self, animation_coord, data=None):
+        """
+        Overrides animation callback to slice 4D data into 3D before animation.
+        """
+        # Data structure: [Time, Depth, Lat, Lon]
+        # self.coord_names[0] is Time (third_coord_idx)
+        # self.coord_names[1] is Depth (depth_idx)
+        
+        sliced_data = self.data
+        
+        if animation_coord == self.coord_names[0]: # Animating Time
+             # Fix Depth to current index
+             depth_dim = self.coord_names[1]
+             # Select returns a new dataset with that dimension removed (if drop=True which is default for simple index selection in xarray? No, wait)
+             # .isel(depth=0) reduces dimension.
+             sliced_data = self.data.isel({depth_dim: self.depth_idx})
+             logger.info(f"Animating Time. Sliced Depth at index {self.depth_idx}. New shape: {sliced_data.shape}")
+             
+        elif animation_coord == self.coord_names[1]: # Animating Depth
+             # Fix Time to current index
+             time_dim = self.coord_names[0]
+             sliced_data = self.data.isel({time_dim: self.third_coord_idx})
+             logger.info(f"Animating Depth. Sliced Time at index {self.third_coord_idx}. New shape: {sliced_data.shape}")
+        
+        # Call parent with sliced data
+        super()._animate_callback(animation_coord, data=sliced_data)
+
     def _render_plot(self, counter=0, **kwargs):
         colormap = self.cmap
         data = self.data  # Because it is 4D we assume the spatial coordinates are the last 2
@@ -43,7 +70,10 @@ class FourDNode(ThreeDNode):
 
     def create_figure(self):
         # Return a DynamicMap that updates when update_stream is triggered
-        self.dmap = hv.DynamicMap(self._render_plot, streams=[self.update_stream])
+        self.dmap = hv.DynamicMap(self._render_plot, streams=[self.update_stream, self.range_stream])
+        
+        # Attach range stream source to dmap to track viewport without triggering callback
+        # self.range_stream.source = self.dmap # Redundant if in streams list? No, streams list registers it.
         
         # Apply rasterization to the DynamicMap
         # usage of rasterize(dmap) handles zoom/pan coordinate transformation automatically
@@ -93,14 +123,20 @@ class FourDNode(ThreeDNode):
         return self.depth_idx
 
     def get_controls(self):
-        # Time controls from parent
-        time_controls = super().get_controls()
+        # Time controls from parent (specifying animate_coord)
+        label = self.coord_names[0].capitalize() if len(self.coord_names) > 0 else "Slice"
+        time_controls = self._make_nav_controls(
+            self.first_slice, self.prev_slice, self.next_slice, self.last_slice,
+            label=label,
+            anim_coord=self.coord_names[0]
+        )
         
-        # Depth controls using helper from parent
+        # Depth controls using helper from parent (specifying animate_coord)
         depth_label = self.coord_names[1].capitalize() if len(self.coord_names) > 1 else "Depth"
         depth_controls = self._make_nav_controls(
             self.first_depth, self.prev_depth, self.next_depth, self.last_depth,
-            label=depth_label
+            label=depth_label,
+            anim_coord=self.coord_names[1]
         )
         
         return pn.Column(time_controls, depth_controls)

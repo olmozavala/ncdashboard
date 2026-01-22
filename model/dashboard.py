@@ -142,6 +142,24 @@ class Dashboard:
         container.extend([header_row, pane])
         if nav_row:
              container.append(nav_row)
+
+        # Store view container in node so it can replace itself (e.g. for animation)
+        new_node.view_container = container
+        
+        # Add to layout if provided
+        if layout_container is not None:
+             layout_container.append(container)
+        
+        # Callback to add new node (e.g. animation) to the dashboard
+        def add_node_cb(added_node):
+             if added_node not in new_node.get_children():
+                  new_node.add_child(added_node)
+             
+             # Create figure pane (recursively adds to layout_container)
+             # layout_container is captured from closure
+             self.create_default_figure(None, added_node.get_plot_type(), layout_container=layout_container, new_node=added_node)
+             
+        new_node.add_node_callback = add_node_cb
         
         return container
 

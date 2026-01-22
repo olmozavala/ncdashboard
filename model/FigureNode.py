@@ -17,6 +17,8 @@ class FigureNode(ABC):
         self.bbox = bbox
         self.children = []
         self.field_name = field_name
+        self.view_container = None
+        self.add_node_callback = None
 
         self.long_name = field_name
         self.units = 'no units'
@@ -24,10 +26,6 @@ class FigureNode(ABC):
         try:
             # If there is a long name, then we use it
             self.long_name = data.long_name.capitalize()
-        except:
-            pass
-
-        try:
             # If there are units, then we use them
             self.units = data.units
         except:
@@ -39,13 +37,13 @@ class FigureNode(ABC):
             self.title = title
 
         self.coord_names = np.array(list(data.dims)) 
-        # TODO Move outside of constructor
-
         self.plot_type = plot_type
 
         if cmap is None:
             if field_name is not None:
                 self.cmap = select_colormap(self.field_name)
+        else:
+            self.cmap = cmap
 
 
     def locate(self, id) -> 'FigureNode':
