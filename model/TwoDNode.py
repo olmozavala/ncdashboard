@@ -21,8 +21,9 @@ class TwoDNode(FigureNode):
         lats = self.data.coords[self.coord_names[-2]].values
         lons = self.data.coords[self.coord_names[-1]].values
 
-        # Base image
-        self.img = gv.Image((lons, lats, self.data), [self.coord_names[-1], self.coord_names[-2]], crs=ccrs.PlateCarree())
+        # Use QuadMesh instead of Image because coordinates may not be perfectly evenly spaced
+        # This fixes the spatial shift/misalignment highlighted by the warning
+        self.img = gv.QuadMesh((lons, lats, self.data), [self.coord_names[-1], self.coord_names[-2]], crs=ccrs.PlateCarree())
 
         # Apply rasterization
         rasterized = rasterize(self.img).opts(

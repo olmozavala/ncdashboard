@@ -130,7 +130,6 @@ class Dashboard:
                 container.min_height = None
                 
                 # Use CSS viewport units for height to avoid squashing
-                # This works even if pn.state.browser_info is not yet populated
                 new_styles = base_styles.copy()
                 new_styles.update({'height': '85vh', 'width': '95%'})
                 container.styles = new_styles
@@ -146,6 +145,9 @@ class Dashboard:
                 container.styles = base_styles
                 container.margin = (10, 10)
                 max_btn.name = "⛶" # Symbol for maximize
+            
+            # Trigger re-render/re-rasterization of the figure
+            pane.param.trigger('object')
         
         max_btn.on_click(toggle_size)
 
