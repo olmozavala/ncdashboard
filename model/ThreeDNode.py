@@ -54,8 +54,8 @@ class ThreeDNode(FigureNode):
         self.dmap = hv.DynamicMap(self._render_plot, streams=[self.update_stream, self.range_stream])
         
         # Apply rasterization to the DynamicMap
-        # usage of rasterize(dmap) handles zoom/pan coordinate transformation automatically
-        rasterized = rasterize(self.dmap).opts(
+        # We cap the resolution (width=800) for better network performance
+        rasterized = rasterize(self.dmap, width=800).opts(
             cmap=self.cmap,
             tools=['hover'],
             colorbar=True,

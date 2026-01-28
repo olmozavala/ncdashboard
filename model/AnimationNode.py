@@ -55,8 +55,74 @@ class AnimationNode(FigureNode):
             name=f'Player {self.id}',
             start=0, end=len(self.anim_values) - 1, value=0,
             loop_policy='loop', interval=500, # Initial speed
-            height=60, sizing_mode='stretch_width'
+            height=60, sizing_mode='stretch_width',
+            show_loop_controls=False
         )
+
+        # --- Caching and Pre-rendering ---
+        self._cache = {}
+        self._is_alive = True
+        
+        # Start background pre-rendering
+        import threading
+        self._pre_render_thread = threading.Thread(target=self._run_pre_render, daemon=True)
+        self._pre_render_thread.start()
+
+    def _run_pre_render(self):
+        """Background thread to pre-populate the cache with rasterized frames."""
+        logger.info(f"Pre-rendering started for {self.id}")
+        for i in range(len(self.anim_values)):
+            if not self._is_alive:
+                break
+            try:
+                if i not in self._cache:
+                    self._get_frame(i)
+            except Exception as e:
+                logger.error(f"Pre-render error at index {i}: {e}")
+        logger.info(f"Pre-rendering completed for {self.id}")
+
+    def __del__(self):
+        # Stop the background thread if the node is destroyed
+        self._is_alive = False
+
+    def _get_frame(self, index):
+        """Internal method to get or compute a specific frame."""
+        if index in self._cache:
+            return self._cache[index]
+
+        val = self.anim_values[index]
+        # Select single frame with nearest method for safety with floats
+        frame_data = self.data.sel({self.anim_coord_name: val}, method='nearest')
+        
+        lat_dim = self.coord_names[-2]
+        lon_dim = self.coord_names[-1]
+        lats = frame_data.coords[lat_dim].values
+        lons = frame_data.coords[lon_dim].values
+        
+        # Format value for title
+        if isinstance(val, (float, np.float32, np.float64)):
+            val_str = f"{val:.2f}"
+        else:
+            val_str = str(val)
+
+        title = f"{self.title or self.id} - [{index}] {self.anim_coord_name}: {val_str}"
+        
+        # Create gv.Image with explicit coords tuple for stability
+        img = gv.Image((lons, lats, frame_data.values), [lon_dim, lat_dim], crs=ccrs.PlateCarree())
+        
+        # Rasterize inside the callback with dynamic=False
+        # We cap the width at 400px to reduce binary payload size for better animation speed
+        result = rasterize(img, dynamic=False, width=400).opts(
+            cmap=self.cmap,
+            colorbar=True,
+            tools=['hover'],
+            responsive=True,
+            aspect='equal',
+            title=title
+        )
+        
+        self._cache[index] = result
+        return result
 
     def _crop_data(self, data, x_range, y_range):
         """Crops the data to the specified ranges with a small buffer."""
@@ -109,27 +175,7 @@ class AnimationNode(FigureNode):
         index = kwargs.get('value', 0)
         
         try:
-            val = self.anim_values[index]
-            # Select single frame with nearest method for safety with floats
-            frame_data = self.data.sel({self.anim_coord_name: val}, method='nearest')
-            
-            lat_dim = self.coord_names[-2]
-            lon_dim = self.coord_names[-1]
-            lats = frame_data.coords[lat_dim].values
-            lons = frame_data.coords[lon_dim].values
-            
-            # Create gv.Image with explicit coords tuple for stability
-            img = gv.Image((lons, lats, frame_data.values), [lon_dim, lat_dim], crs=ccrs.PlateCarree())
-            
-            # Rasterize inside the callback with dynamic=False
-            return rasterize(img, dynamic=False).opts(
-                cmap=self.cmap,
-                colorbar=True,
-                tools=['hover'],
-                responsive=True,
-                aspect='equal',
-                title=f"{self.title or self.id} - {self.anim_coord_name}: {val}"
-            )
+            return self._get_frame(index)
         except Exception as e:
             logger.error(f"Error rendering frame {index}: {e}")
             return hv.Text(0, 0, f"Error rendering frame: {e}")
@@ -149,15 +195,14 @@ class AnimationNode(FigureNode):
         plot = (tiles * self.dmap).opts(
             active_tools=['wheel_zoom', 'pan'],
             responsive=True,
-            aspect='equal',
-            title=self.title or self.id
+            aspect='equal'
         )
 
         # Set initial viewport if requested
         if self.x_range and self.y_range:
             try:
                 min_lon, max_lon = sorted([self.x_range[0], self.x_range[1]])
-                min_lat, max_lat = sorted([self.y_range[0], self.y_range[1]])
+                min_lat, max_lat = sorted([y_range[0], y_range[1]])
 
                 # If the values are small (degrees), transform to Web Mercator meters for the plot
                 if abs(min_lon) <= 180 and abs(min_lat) <= 90:

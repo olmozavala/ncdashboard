@@ -25,13 +25,17 @@ class TwoDNode(FigureNode):
         # This fixes the spatial shift/misalignment highlighted by the warning
         self.img = gv.QuadMesh((lons, lats, self.data), [self.coord_names[-1], self.coord_names[-2]], crs=ccrs.PlateCarree())
 
+        # Project to Web Mercator BEFORE rasterizing. 
+        # This is the most robust way to ensure alignment with background tiles 
+        # when using datashader with irregular or non-WebMercator source data.
+        projected = gv.project(self.img, projection=ccrs.GOOGLE_MERCATOR)
+
         # Apply rasterization
-        rasterized = rasterize(self.img).opts(
+        rasterized = rasterize(projected).opts(
             cmap=self.cmap,
             tools=['hover'],
             colorbar=True,
             responsive=True,
-            aspect='equal'
         )
 
         # Add tiles

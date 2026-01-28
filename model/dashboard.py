@@ -119,35 +119,44 @@ class Dashboard:
         max_btn = pn.widgets.Button(name="⛶", button_type="light", width=40, height=30, align='center', margin=(0, 5, 0, 0))
         
         def toggle_size(event):
-            # Base styles to preserve
-            base_styles = {'background': '#f0f0f0', 'border-radius': '5px', 'padding': '10px'}
-            
             if container.sizing_mode == 'fixed':
                 # Maximizing
                 container.sizing_mode = 'stretch_both'
                 container.width = None
                 container.height = None
-                container.min_height = None
+                container.max_width = None
                 
-                # Use CSS viewport units for height to avoid squashing
-                new_styles = base_styles.copy()
-                new_styles.update({'height': '85vh', 'width': '95%'})
-                container.styles = new_styles
+                container.styles.update({
+                    'height': '85vh', 
+                    'width': '95vw',
+                    'z-index': '1000',
+                    'position': 'relative'
+                })
                 
                 container.margin = (5, 5)
                 max_btn.name = "🗗" # Symbol for restore
             else:
                 # Restoring
+                container.styles.update({
+                    'height': 'auto',
+                    'width': '600px',
+                    'z-index': '1',
+                    'position': 'static'
+                })
+
                 container.sizing_mode = 'fixed'
                 container.width = 600
+                container.max_width = 600
                 container.height = None
                 container.min_height = 480
-                container.styles = base_styles
+                
                 container.margin = (10, 10)
                 max_btn.name = "⛶" # Symbol for maximize
             
             # Trigger re-render/re-rasterization of the figure
             pane.param.trigger('object')
+            container.param.trigger('styles')
+            container.param.trigger('sizing_mode')
         
         max_btn.on_click(toggle_size)
 
@@ -231,12 +240,8 @@ class Dashboard:
 
             parent_node.add_child(new_node) 
             
-            # Create the figure container using create_default_figure logic re-used or manual?
-            # Re-using create_default_figure allows recursive close logic
-            fig_container = self.create_default_figure(None, PlotType.OneD, layout_container, new_node=new_node)
-            
-            if layout_container is not None:
-                layout_container.append(fig_container)
+            # create_default_figure appends to layout_container automatically
+            self.create_default_figure(None, PlotType.OneD, layout_container, new_node=new_node)
 
     def get_field_names(self, var_type):
         dim_fields = []
