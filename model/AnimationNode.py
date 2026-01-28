@@ -41,9 +41,8 @@ class AnimationNode(FigureNode):
             data = data.coarsen({self.coord_names[-2]:coarsen, self.coord_names[-1]:coarsen}, 
                                     boundary='trim').mean()
 
-        # We NO LONGER slice the data destructivey. 
-        # This prevents the "extent jump" and allows the user to zoom out from the animation.
-        self.data = data
+        # Crop data if ranges provided for performance, but with a buffer
+        self.data = self._crop_data(data, x_range, y_range)
         self.anim_coord_name = animation_coord
         
         # Store requested viewport
@@ -59,24 +58,70 @@ class AnimationNode(FigureNode):
             height=60, sizing_mode='stretch_width'
         )
 
+    def _crop_data(self, data, x_range, y_range):
+        """Crops the data to the specified ranges with a small buffer."""
+        if x_range is None or y_range is None:
+            return data
+            
+        try:
+            # Determine if ranges are in degrees (PlateCarree) or meters (Mercator)
+            min_lon, max_lon = sorted([x_range[0], x_range[1]])
+            min_lat, max_lat = sorted([y_range[0], y_range[1]])
+
+            # If values are large, they are likely Mercator/WebMercator meters.
+            if abs(min_lon) > 500 or abs(min_lat) > 90:
+                logger.info("Ranges in meters (Mercator), transforming to PlateCarree (degrees) for slicing...")
+                src_crs = ccrs.Mercator()
+                dest_crs = ccrs.PlateCarree()
+                x0, y0 = dest_crs.transform_point(x_range[0], y_range[0], src_crs)
+                x1, y1 = dest_crs.transform_point(x_range[1], y_range[1], src_crs)
+                min_lon, max_lon = sorted([x0, x1])
+                min_lat, max_lat = sorted([y0, y1])
+            else:
+                logger.info("Ranges appear to be in degrees. No transformation needed for slicing.")
+
+            # Add 20% buffer to the cropped data for local panning
+            lon_buffer = (max_lon - min_lon) * 0.2
+            lat_buffer = (max_lat - min_lat) * 0.2
+            
+            # Identify lat/lon dims
+            lat_dim = self.coord_names[-2]
+            lon_dim = self.coord_names[-1]
+
+            logger.info(f"Cropping data with buffer: Lon({min_lon-lon_buffer:.2f}, {max_lon+lon_buffer:.2f}), Lat({min_lat-lat_buffer:.2f}, {max_lat+lat_buffer:.2f})")
+            
+            # Handle descending latitudes if necessary (common in netCDF)
+            lats = data[lat_dim].values
+            if lats[0] > lats[-1]:
+                lat_slice = slice(max_lat + lat_buffer, min_lat - lat_buffer)
+            else:
+                lat_slice = slice(min_lat - lat_buffer, max_lat + lat_buffer)
+                
+            return data.sel({lon_dim: slice(min_lon - lon_buffer, max_lon + lon_buffer), 
+                             lat_dim: lat_slice})
+            
+        except Exception as e:
+            logger.error(f"Failed to crop data: {e}")
+            return data
+
     def _render_frame(self, **kwargs):
         """Callback for DynamicMap to render a single frame of the animation."""
         index = kwargs.get('value', 0)
         
         try:
             val = self.anim_values[index]
-            # Select single frame
-            frame_data = self.data.sel({self.anim_coord_name: val})
+            # Select single frame with nearest method for safety with floats
+            frame_data = self.data.sel({self.anim_coord_name: val}, method='nearest')
             
             lat_dim = self.coord_names[-2]
             lon_dim = self.coord_names[-1]
             lats = frame_data.coords[lat_dim].values
             lons = frame_data.coords[lon_dim].values
             
-            # Create gv.Image
-            img = gv.Image((lons, lats, frame_data), [lon_dim, lat_dim], crs=ccrs.PlateCarree())
+            # Create gv.Image with explicit coords tuple for stability
+            img = gv.Image((lons, lats, frame_data.values), [lon_dim, lat_dim], crs=ccrs.PlateCarree())
             
-            # Rasterize inside the callback
+            # Rasterize inside the callback with dynamic=False
             return rasterize(img, dynamic=False).opts(
                 cmap=self.cmap,
                 colorbar=True,
@@ -110,11 +155,26 @@ class AnimationNode(FigureNode):
 
         # Set initial viewport if requested
         if self.x_range and self.y_range:
-            # We apply xlim/ylim to match the parent viewport.
-            # HoloViews/Geoviews will handle the coordinate system matching (meters vs degrees)
-            # as long as we apply it to the final projected overlay.
-            plot = plot.opts(xlim=self.x_range, ylim=self.y_range)
-            logger.info(f"Applied initial viewport: {self.x_range}, {self.y_range}")
+            try:
+                min_lon, max_lon = sorted([self.x_range[0], self.x_range[1]])
+                min_lat, max_lat = sorted([self.y_range[0], self.y_range[1]])
+
+                # If the values are small (degrees), transform to Web Mercator meters for the plot
+                if abs(min_lon) <= 180 and abs(min_lat) <= 90:
+                    from holoviews.util.transform import lon_lat_to_easting_northing
+                    logger.info(f"Transforming degrees viewport to meters...")
+                    x0, y0 = lon_lat_to_easting_northing(self.x_range[0], self.y_range[0])
+                    x1, y1 = lon_lat_to_easting_northing(self.x_range[1], self.y_range[1])
+                    final_xlim = tuple(sorted([x0, x1]))
+                    final_ylim = tuple(sorted([y0, y1]))
+                else:
+                    final_xlim = (min_lon, max_lon)
+                    final_ylim = (min_lat, max_lat)
+
+                plot = plot.opts(xlim=final_xlim, ylim=final_ylim)
+                logger.info(f"Viewport locked to (meters): {final_xlim}, {final_ylim}")
+            except Exception as e:
+                logger.error(f"Failed to set initial viewport: {e}")
 
         return plot
 

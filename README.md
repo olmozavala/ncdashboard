@@ -3,24 +3,12 @@ An Open Source project to generate dynamic visualizations of ocean and atmospher
 
 ## Installation
 
-Follow these steps to run `ncdashboard.py` including creating a new environment with `ncdashboard_env.yml`:
+Ensure you have access to the pre-configured `uv` environment.
 
-1. Create a new conda environment using the `ncdashboard_env.yml` file. This file should contain all the necessary packages for the project.
+1. Use the python executable from the `uv` environment to run the dashboard:
     ```bash
-    conda env create -f ncdashboard_env.yml
+    /home/olmozavala/uv/envs/eoasweb/bin/python ncdashboard_panel.py path_to_file
     ```
-
-2. Activate the newly created environment.
-    ```bash
-    conda activate ncdashboard
-    ```
-
-3. Run the `ncdashboard.py` script.
-    ```bash
-    python ncdashboard.py path_to_file
-    ```
-
-Please ensure that you have the `conda` package manager installed and that the `ncdashboard_env.yml` file is in the same directory as your terminal session. If not, you will need to provide the full path to the `ncdashboard_env.yml` file in the `conda env create` command.
 
 ## Running
 To run the `ncdashboard.py` script, you will need to provide the path 

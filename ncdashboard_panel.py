@@ -21,7 +21,7 @@ import holoviews as hv
 import geoviews as gv
 
 # Initialize Panel extension using Bootstrap
-pn.extension(design='bootstrap')
+pn.extension(design='bootstrap', browser_info=True)
 hv.extension('bokeh')
 gv.extension('bokeh')
 
@@ -53,7 +53,7 @@ class NcDashboard:
         # Serve the app
         # Allow websocket origin for both localhost and 127.0.0.1 to avoid 403 errors
         ws_origin = [f"{self.host}:{self.port}", f"localhost:{self.port}", f"127.0.0.1:{self.port}"]
-        pn.serve(self.template, port=self.port, address=self.host, show=False, websocket_origin=ws_origin)
+        pn.serve(self.template, port=self.port, address=self.host, show=False, websocket_origin=ws_origin, autoreload=True)
 
     def init_menu(self):
         """

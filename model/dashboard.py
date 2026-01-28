@@ -113,12 +113,49 @@ class Dashboard:
             styles={'background': '#f0f0f0', 'border-radius': '5px', 'padding': '10px'}
         )
         
+        # Maximize/Restore Button
+        # Toggle between fixed size and full screen (stretch both)
+        # Using ⛶ (Square Four Corners) for maximize
+        max_btn = pn.widgets.Button(name="⛶", button_type="light", width=40, height=30, align='center', margin=(0, 5, 0, 0))
+        
+        def toggle_size(event):
+            # Base styles to preserve
+            base_styles = {'background': '#f0f0f0', 'border-radius': '5px', 'padding': '10px'}
+            
+            if container.sizing_mode == 'fixed':
+                # Maximizing
+                container.sizing_mode = 'stretch_both'
+                container.width = None
+                container.height = None
+                container.min_height = None
+                
+                # Use CSS viewport units for height to avoid squashing
+                # This works even if pn.state.browser_info is not yet populated
+                new_styles = base_styles.copy()
+                new_styles.update({'height': '85vh', 'width': '95%'})
+                container.styles = new_styles
+                
+                container.margin = (5, 5)
+                max_btn.name = "🗗" # Symbol for restore
+            else:
+                # Restoring
+                container.sizing_mode = 'fixed'
+                container.width = 600
+                container.height = None
+                container.min_height = 480
+                container.styles = base_styles
+                container.margin = (10, 10)
+                max_btn.name = "⛶" # Symbol for maximize
+        
+        max_btn.on_click(toggle_size)
+
         # Close Button
         header_row = pn.Row(
             pn.layout.HSpacer(),
+            max_btn,
             pn.widgets.Button(name="x", button_type="danger", width=30, height=30, align='center')
         )
-        close_btn = header_row[1]
+        close_btn = header_row[2]
         
         def close_action(event):
             if layout_container is not None:
