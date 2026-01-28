@@ -15,10 +15,10 @@ class OneDNode(FigureNode):
     # It also sets the animation coordinate and the resolution of the animation.
     # Eventhough the 1st dimensions may not be time, we are still calling it like that. 
     def __init__(self, id, data, title=None, field_name=None, 
-                 bbox=None, plot_type=PlotType.OneD, parent=None):
+                 bbox=None, plot_type=PlotType.OneD, parent=None, **params):
 
         super().__init__(id, data, title=title, field_name=field_name, 
-                         bbox=bbox, plot_type=plot_type, parent=parent)
+                         bbox=bbox, plot_type=plot_type, parent=parent, **params)
         logger.info(f"Created OneDNode: id={id}, shape={data.shape}, coords={self.coord_names}")
 
     def create_figure(self):

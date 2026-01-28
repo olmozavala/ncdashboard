@@ -10,9 +10,9 @@ from loguru import logger
 
 class TwoDNode(FigureNode):
     def __init__(self, id, data, title=None, field_name=None, bbox=None, 
-                 plot_type=PlotType.TwoD, parent=None, cmap=None):
+                 plot_type=PlotType.TwoD, parent=None, cmap=None, **params):
         super().__init__(id, data, title=title, field_name=field_name,
-                         bbox=bbox, plot_type=plot_type, parent=parent, cmap=cmap)
+                         bbox=bbox, plot_type=plot_type, parent=parent, cmap=cmap, **params)
         shape_str = str(data.shape) if hasattr(data, 'shape') else "Dataset (no shape)"
         logger.info(f"Created TwoDNode: id={id}, shape={shape_str}, coords={self.coord_names}")
 
@@ -22,21 +22,25 @@ class TwoDNode(FigureNode):
         lons = self.data.coords[self.coord_names[-1]].values
 
         # Use QuadMesh instead of Image because coordinates may not be perfectly evenly spaced
-        # This fixes the spatial shift/misalignment highlighted by the warning
         self.img = gv.QuadMesh((lons, lats, self.data), [self.coord_names[-1], self.coord_names[-2]], crs=ccrs.PlateCarree())
 
         # Project to Web Mercator BEFORE rasterizing. 
-        # This is the most robust way to ensure alignment with background tiles 
-        # when using datashader with irregular or non-WebMercator source data.
         projected = gv.project(self.img, projection=ccrs.GOOGLE_MERCATOR)
 
-        # Apply rasterization
-        rasterized = rasterize(projected).opts(
-            cmap=self.cmap,
-            tools=['hover'],
-            colorbar=True,
-            responsive=True,
-        )
+        # We wrap in a DynamicMap to allow reactive updates to cmap 
+        # without replacing the entire figure object in the UI.
+        def _get_rasterized(cmap):
+            return rasterize(projected, how=self.cnorm).opts(
+                cmap=cmap,
+                cnorm=self.cnorm,
+                tools=['hover'],
+                colorbar=True,
+                responsive=True,
+            )
+        
+        # Create stream for cmap
+        self.param_stream = hv.streams.Params(self, ['cmap'])
+        rasterized = hv.DynamicMap(_get_rasterized, streams=[self.param_stream])
 
         # Add tiles
         tiles = gv.tile_sources.OSM()

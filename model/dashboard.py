@@ -160,13 +160,51 @@ class Dashboard:
         
         max_btn.on_click(toggle_size)
 
-        # Close Button
+        # --- UI Controls for the Plot ---
+        import cmocean
+        cmo_names = ['thermal', 'haline', 'algae', 'matter', 'turbid', 'speed', 'amp', 'tempo', 'gray', 'balance', 'curl', 'diff', 'oxy', 'dense', 'ice', 'deep']
+        cmap_options = cmo_names + ['viridis', 'inferno', 'plasma', 'magma', 'rainbow', 'jet', 'coolwarm']
+        
+        # Determine initial colormap
+        initial_cmap = 'viridis' 
+        if hasattr(new_node.cmap, 'name'):
+            name = new_node.cmap.name.split('.')[-1]
+            if name in cmap_options:
+                initial_cmap = name
+
+        # Colormap Select
+        cmap_select = pn.widgets.Select(
+            name="", options=cmap_options, value=initial_cmap,
+            width=120, height=30, align='center', margin=(0, 10)
+        )
+
+        def update_plot_view(event):
+            # Update Node parameters - This triggers the reactive HoloViews pipeline
+            # without replacing the pane.object, thus preserving zoom/pan perfectly.
+            if event.obj == cmap_select:
+                new_val = event.new
+                new_cmap = getattr(cmocean.cm, new_val) if new_val in cmo_names else new_val
+                new_node.cmap = new_cmap
+
+            # Clear cache for animations
+            if hasattr(new_node, '_cache'):
+                new_node._cache.clear()
+
+            # For animations, we still trigger the UI sync
+            if hasattr(new_node, 'player'):
+                new_node.player.param.trigger('value')
+
+        cmap_select.param.watch(update_plot_view, 'value')
+
+        # Header with Controls
+        close_btn = pn.widgets.Button(name="x", button_type="danger", width=30, height=30, align='center')
         header_row = pn.Row(
+            pn.pane.Markdown("**Cmap:**", align='center', margin=(0, 0, 0, 5)),
+            cmap_select,
             pn.layout.HSpacer(),
             max_btn,
-            pn.widgets.Button(name="x", button_type="danger", width=30, height=30, align='center')
+            close_btn
         )
-        close_btn = header_row[2]
         
         def close_action(event):
             if layout_container is not None:

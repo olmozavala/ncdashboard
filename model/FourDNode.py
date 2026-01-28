@@ -16,9 +16,9 @@ class FourDNode(ThreeDNode):
     # It also sets the animation coordinate and the resolution of the animation.
     # Eventhough the 1st and 2nd dimensions may not be time and depth, we are still calling it like that. 
     def __init__(self, id, data, time_idx, depth_idx, title=None, field_name=None, 
-                 bbox=None, plot_type = PlotType.FourD, parent=None,  cmap=None):
-        super().__init__(id, data, third_coord_idx=time_idx, title=title, field_name=field_name,
-                            bbox=bbox, plot_type=plot_type, parent=parent, cmap=cmap)
+                 bbox=None, plot_type = PlotType.FourD, parent=None,  cmap=None, **params):
+        super().__init__(id, data, time_idx, title=title, field_name=field_name,
+                            bbox=bbox, plot_type=plot_type, parent=parent, cmap=cmap, **params)
         
         self.depth_idx = depth_idx
         self.depth_coord_name = data.coords[self.coord_names[1]].name
@@ -62,28 +62,33 @@ class FourDNode(ThreeDNode):
             # We use self.third_coord_idx (from parent) for the first dimension (Time)
             current_slice = data[self.third_coord_idx, self.depth_idx,:,:]
 
-        title = f'{self.title} at {self.coord_names[0].capitalize()} {self.third_coord_idx} and {self.coord_names[1].capitalize()} {self.depth_idx}'
+        title = f'{self.title} ({self.cnorm}) at {self.coord_names[0].capitalize()} {self.third_coord_idx} and {self.coord_names[1].capitalize()} {self.depth_idx}'
         
         # Use geoviews Image for geographic plotting
         img = gv.Image((lons, lats, current_slice.values), [self.coord_names[-1], self.coord_names[-2]], crs=ccrs.PlateCarree())
-        return img.opts(title=title, cmap=colormap)
+        return img.opts(title=title, cmap=colormap, cnorm=self.cnorm)
 
     def create_figure(self):
-        # Return a DynamicMap that updates when update_stream is triggered
-        self.dmap = hv.DynamicMap(self._render_plot, streams=[self.update_stream, self.range_stream])
-        
-        # Attach range stream source to dmap to track viewport without triggering callback
-        # self.range_stream.source = self.dmap # Redundant if in streams list? No, streams list registers it.
+        # Create a stream that watches for cmap and cnorm changes
+        self.param_stream = hv.streams.Params(self, ['cnorm', 'cmap'])
+
+        # Return a DynamicMap that updates when update_stream or range_stream is triggered
+        # We also watch param_stream so the title (which shows the scale) updates
+        self.dmap = hv.DynamicMap(self._render_plot, 
+                                  streams=[self.update_stream, self.range_stream, self.param_stream])
         
         # Apply rasterization to the DynamicMap
-        # usage of rasterize(dmap) handles zoom/pan coordinate transformation automatically
-        rasterized = rasterize(self.dmap).opts(
-            cmap=self.cmap,
+        rasterized = rasterize(self.dmap, width=800).apply.opts(
+            cmap=self.param.cmap,
+            cnorm=self.cnorm,
             tools=['hover'],
             colorbar=True,
             responsive=True,
             aspect='equal'
         )
+        
+        # Link range stream for viewport tracking
+        self.range_stream.source = rasterized
 
         # Overlay with tiles
         tiles = gv.tile_sources.OSM()

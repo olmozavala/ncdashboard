@@ -7,11 +7,19 @@ import numpy as np
 from model.model_utils import PlotType, get_all_coords
 from proj_layout.utils import select_colormap
 
-from abc import ABC, abstractmethod
+import param
+from abc import ABC, ABCMeta, abstractmethod
 
-class FigureNode(ABC):
+class ParameterizedABC(param.parameterized.ParameterizedMetaclass, ABCMeta):
+    pass
+
+class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
+    cmap = param.Parameter()
+    cnorm = param.Selector(default='linear', objects=['linear', 'log', 'eq_hist'])
+
     def __init__(self, id, data, title=None, field_name=None, bbox=None, plot_type = PlotType.TwoD, 
-                 parent=None,  cmap=None):
+                 parent=None,  cmap=None, **params):
+        super().__init__(**params)
         self.parent = parent
         self.id = id
         self.bbox = bbox
@@ -19,6 +27,7 @@ class FigureNode(ABC):
         self.field_name = field_name
         self.view_container = None
         self.add_node_callback = None
+        self.cnorm = 'linear'
 
         self.long_name = field_name
         self.units = 'no units'

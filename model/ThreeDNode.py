@@ -14,10 +14,10 @@ class ThreeDNode(FigureNode):
     # It also sets the animation coordinate and the resolution of the animation.
     # Eventhough the 1st dimensions may not be time, we are still calling it like that. 
     def __init__(self, id, data, third_coord_idx=0, plot_type=PlotType.ThreeD, 
-                 title=None, field_name=None, bbox=None, parent=None, cmap=None):
+                 title=None, field_name=None, bbox=None, parent=None, cmap=None, **params):
 
         super().__init__(id, data, title=title, field_name=field_name, 
-                         bbox=bbox, plot_type=plot_type, parent=parent, cmap=cmap)
+                         bbox=bbox, plot_type=plot_type, parent=parent, cmap=cmap, **params)
 
         self.third_coord_idx = third_coord_idx
         logger.info(f"Created ThreeDNode: id={id}, shape={data.shape}, coords={self.coord_names}")
@@ -41,27 +41,37 @@ class ThreeDNode(FigureNode):
         lats = data.coords[self.coord_names[-2]].values
         lons = data.coords[self.coord_names[-1]].values
 
-        title = f'{self.title} at {self.coord_names[0].capitalize()} {self.third_coord_idx}'
+        title = f'{self.title} ({self.cnorm}) at {self.coord_names[0].capitalize()} {self.third_coord_idx}'
 
         # Use geoviews Image for geographic plotting
         img = gv.Image((lons, lats, data.values), [self.coord_names[-1], self.coord_names[-2]], crs=ccrs.PlateCarree())
-        return img.opts(title=title, cmap=colormap)
+        return img.opts(title=title, cmap=colormap, cnorm=self.cnorm)
 
     def create_figure(self):
-        # Return a DynamicMap that updates when update_stream is triggered
-        # We include range_stream to ensure we capture the current viewport for animation
-        # even though we don't use it in _render_plot (args are ignored or caught in kwargs)
-        self.dmap = hv.DynamicMap(self._render_plot, streams=[self.update_stream, self.range_stream])
+        # Create a stream that watches for cmap and cnorm changes
+        self.param_stream = hv.streams.Params(self, ['cnorm', 'cmap'])
+
+        # Return a DynamicMap that updates when update_stream or range_stream is triggered
+        # We also watch param_stream so the title (which shows the scale) updates
+        self.dmap = hv.DynamicMap(self._render_plot, 
+                                  streams=[self.update_stream, self.range_stream, self.param_stream])
         
         # Apply rasterization to the DynamicMap
-        # We cap the resolution (width=800) for better network performance
-        rasterized = rasterize(self.dmap, width=800).opts(
-            cmap=self.cmap,
+        # We use .apply.opts to link cmap to the parameter reactively
+        rasterized = rasterize(self.dmap, width=800).apply.opts(
+            cmap=self.param.cmap,
+            cnorm=self.cnorm,
             tools=['hover'],
             colorbar=True,
             responsive=True,
             aspect='equal'
         )
+        
+        # Link range stream for viewport tracking
+        self.range_stream.source = rasterized
+        
+        # Ensure the range stream is linked to the output for viewport tracking
+        self.range_stream.source = rasterized
 
         # Overlay with tiles
         tiles = gv.tile_sources.OSM()
