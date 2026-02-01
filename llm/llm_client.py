@@ -54,7 +54,7 @@ class BaseLLMClient(ABC):
 class OllamaClient(BaseLLMClient):
     """Client for local Ollama server."""
     
-    DEFAULT_MODEL = "mistral"
+    DEFAULT_MODEL = "qwen2.5-coder:3b"
     DEFAULT_URL = "http://localhost:11434"
     
     def __init__(self, config: LLMConfig):
