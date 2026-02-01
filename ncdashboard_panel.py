@@ -103,44 +103,28 @@ class NcDashboard:
                 self.main_area.append(pn.pane.Markdown(f"**State restore error:** {e}", styles={'color': 'red'}))
 
     def init_menu(self):
-        # ... (Method logic remains the same)
         self.sidebar_area.clear()
-        
-        controls = []
         
         var_widgets = []
         for var_type in ["4D", "3D", "2D", "1D"]:
             fields = self.ncdash.get_field_names(var_type)
             if not fields:
                 continue
-                
-            options = {f"{name} {dims}": field for name, field, dims in fields}
             
-            selector = pn.widgets.CheckBoxGroup(
-                name=f"{var_type} Vars",
-                options=options,
-                inline=False 
-            )
-            controls.append((var_type, selector))
-            var_widgets.append(pn.Column(pn.pane.Markdown(f"### {var_type} Vars"), selector))
+            var_column = pn.Column(pn.pane.Markdown(f"### {var_type} Vars"))
+            for name, field, dims in fields:
+                # Create a button for each variable for one-click plotting
+                # Using 'default' or 'light' for a clean look
+                btn = pn.widgets.Button(name=f"{name} {dims}", sizing_mode='stretch_width')
+                
+                # Use a factory function to capture the scope correctly
+                def make_plot_callback(f, vt):
+                    return lambda e: self.plot_field(f, vt)
+                
+                btn.on_click(make_plot_callback(field, var_type))
+                var_column.append(btn)
+            var_widgets.append(var_column)
 
-        plot_btn = pn.widgets.Button(name="Plot selected fields", button_type='success')
-        
-        def on_plot_click(event):
-            try:
-                for v_type, sel_widget in controls:
-                    selected_vals = sel_widget.value
-                    if selected_vals:
-                        for field in selected_vals:
-                            self.plot_field(field, v_type)
-                for _, sel_widget in controls:
-                    sel_widget.value = []
-            except Exception as e:
-                logger.exception(f"Error acting on plot click: {e}")
-                self.main_area.append(pn.pane.Markdown(f"**Error**: {e}", styles={'color': 'red'}))
-
-        plot_btn.on_click(on_plot_click)
-        
         close_all_btn = pn.widgets.Button(name="Close all", button_type='danger')
         close_all_btn.on_click(lambda e: self.main_area.clear())
 
@@ -180,13 +164,14 @@ class NcDashboard:
         load_state_input.param.watch(on_load_state, 'value')
 
         # Add items to sidebar in desired order
-        self.sidebar_area.append(pn.Row(plot_btn, close_all_btn))
+        # Options/Actions at the top
+        self.sidebar_area.append(close_all_btn)
         self.sidebar_area.append(pn.pane.Markdown("### Save State"))
         self.sidebar_area.append(save_state_btn)
         self.sidebar_area.append(pn.pane.Markdown("### Load State"))
         self.sidebar_area.append(load_state_input)
         
-        # Add variable selectors below
+        # Add variable buttons below
         for widget in var_widgets:
             self.sidebar_area.append(widget)
 
