@@ -96,6 +96,8 @@ class Dashboard:
             def tap_callback(x, y):
                 if x is None or y is None: 
                     return
+                # Update marker stream
+                new_node.marker_stream.event(x=x, y=y)
                 # Create profile
                 self.create_profiles(new_node.id, x, y, layout_container)
             

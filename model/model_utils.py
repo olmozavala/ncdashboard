@@ -90,6 +90,9 @@ class PlotType(Enum):
     ThreeD = 3
     FourD = 4
     Profile = 5
+    Transect_1D = 6   # Transect output from 2D data (distance)
+    Transect_2D = 7   # Transect output from 3D data (coord × distance)
+    Transect_3D = 8   # Transect output from 4D data (time × depth × distance)
     OneD_Animation = 15
     TwoD_Animation = 16
     ThreeD_Animation = 17
@@ -100,6 +103,9 @@ class PlotType(Enum):
 
     def can_request_animation(self):
         return self.value in {3, 4}
+    
+    def is_transect(self):
+        return self.value in {6, 7, 8}
 
 class Resolutions(Enum):
     LOW = "high"

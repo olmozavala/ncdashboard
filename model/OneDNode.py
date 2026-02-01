@@ -24,16 +24,32 @@ class OneDNode(FigureNode):
     def create_figure(self):
         dims = self.data.dims  # Get the list of dimensions
         profile = self.data.values  # Get the values of the data
-        x_vals = list(range(len(profile)))
+        
+        # Get x-axis values from the coordinate (important for transects which use 'distance')
+        x_dim = dims[0] if len(dims) > 0 else 'index'
+        if x_dim in self.data.coords:
+            x_vals = self.data.coords[x_dim].values
+            x_label = x_dim.capitalize()
+            # Try to get units for x-axis
+            try:
+                x_units = self.data.coords[x_dim].attrs.get('units', '')
+                if x_units:
+                    x_label = f'{x_label} ({x_units})'
+            except:
+                pass
+        else:
+            x_vals = list(range(len(profile)))
+            x_label = 'Index'
 
-        # Get the units of the coordinate
+        # Get the units of the y-axis (data values)
         try:
             units_y = self.data.units
         except:
             units_y = 'no units'
 
         # Create HoloViews curve
-        curve = hv.Curve((x_vals, profile), 'Index', f'{self.long_name} ({self.units})')
+        y_label = f'{self.long_name} ({self.units})'
+        curve = hv.Curve((x_vals, profile), x_label, y_label)
         scatter = hv.Scatter((x_vals, profile))
         
         plot = (curve * scatter).opts(

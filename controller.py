@@ -1,7 +1,7 @@
 import dash
 from dash import dcc, html, ctx, Input, Output, State, ALL, callback, Patch
 import logging
-from model.TreeNode import PlotType
+from model.model_utils import PlotType
 from model.model_utils import print_tree
 from textwrap import dedent as d
 from dash import dcc, html, ctx, Input, Output, State, ALL, callback, Patch

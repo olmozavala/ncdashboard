@@ -40,7 +40,7 @@ class ProfileNode(FigureNode):
         # Flip valid for Depth (if positive)
         # We can handle this via invert_yaxis in options or modifying data
         vals = coordinate.values
-        if self.profile_coord.lower() == 'depth':
+        if self.dim_prof.lower() == 'depth':
              if vals[1] > vals[0]:
                  # Inverted depth-like coordinate
                  vals = -vals
@@ -52,7 +52,7 @@ class ProfileNode(FigureNode):
         # if depth: x=profile, y=coordinate (depth)
         # else: x=coordinate, y=profile
         
-        if self.profile_coord.lower() == 'depth':
+        if self.dim_prof.lower() == 'depth':
             curve = hv.Curve((profile, vals), f'{self.long_name} ({self.units})', f'{dims[-1].capitalize()} ({units_y})')
             scatter = hv.Scatter((profile, vals))
         else:

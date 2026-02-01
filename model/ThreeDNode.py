@@ -3,6 +3,7 @@ import geoviews as gv
 import panel as pn
 import cartopy.crs as ccrs
 from holoviews.operation.datashader import rasterize
+from holoviews import streams
 from loguru import logger
 
 from model.FigureNode import FigureNode
@@ -27,6 +28,11 @@ class ThreeDNode(FigureNode):
         self.update_stream = hv.streams.Counter()
         # Stream for capturing viewport ranges (for animation)
         self.range_stream = hv.streams.RangeXY()
+        
+        # Transect mode state
+        self.transect_mode = False
+        self.transect_path = None
+        self.transect_stream = None
 
     def _render_plot(self, counter=0, **kwargs):
         colormap = self.cmap
@@ -61,7 +67,7 @@ class ThreeDNode(FigureNode):
         rasterized = rasterize(self.dmap, width=800).apply.opts(
             cmap=self.param.cmap,
             cnorm=self.cnorm,
-            tools=['hover'],
+            tools=['hover', 'save', 'copy'],
             colorbar=True,
             responsive=True,
             aspect='equal'
@@ -75,7 +81,22 @@ class ThreeDNode(FigureNode):
 
         # Overlay with tiles
         tiles = gv.tile_sources.OSM()
-        return (tiles * rasterized).opts(active_tools=['wheel_zoom', 'pan'])
+        base_plot = (tiles * rasterized).opts(
+            active_tools=['wheel_zoom', 'pan'],
+            default_tools=['pan', 'wheel_zoom', 'save', 'copy', 'reset']
+        )
+
+        # Overlay with click marker
+        def _get_marker(x, y):
+            kdims = [self.coord_names[-1], self.coord_names[-2]]
+            if x is None or y is None:
+                return gv.Points([], kdims=kdims, crs=ccrs.PlateCarree())
+            return gv.Points([(x, y)], kdims=kdims, crs=ccrs.PlateCarree()).opts(
+                color='yellow', size=15, marker='star', line_color='black', line_width=1
+            )
+            
+        marker_dmap = gv.project(hv.DynamicMap(_get_marker, streams=[self.marker_stream]), projection=ccrs.GOOGLE_MERCATOR)
+        return base_plot * marker_dmap
 
     def get_stream_source(self):
         if not hasattr(self, 'dmap'):
@@ -134,6 +155,86 @@ class ThreeDNode(FigureNode):
         
         # Trigger callback to add node to layout
         self.add_node_callback(anim_node)
+    
+    def _init_transect_mode(self):
+        """Initialize transect drawing mode with PolyDraw stream."""
+        if self.transect_stream is not None:
+            return  # Already initialized
+            
+        # Create an empty Path for drawing transects
+        self.transect_path = gv.Path([], crs=ccrs.PlateCarree()).opts(
+            color='red', 
+            line_width=3,
+            tools=['poly_draw']
+        )
+        
+        # Create PolyDraw stream linked to the path
+        self.transect_stream = streams.PolyDraw(
+            source=self.transect_path,
+            drag=True,
+            num_objects=1,
+            show_vertices=True,
+            vertex_style={'fill_color': 'yellow', 'size': 8}
+        )
+        
+        logger.info(f"Transect mode initialized for node {self.id}")
+    
+    def _toggle_transect_mode(self):
+        """Toggle transect drawing mode on/off."""
+        self.transect_mode = not self.transect_mode
+        
+        if self.transect_mode:
+            self._init_transect_mode()
+            logger.info(f"Transect mode ENABLED for node {self.id}")
+        else:
+            logger.info(f"Transect mode DISABLED for node {self.id}")
+    
+    def _create_transect(self):
+        """Extract transect data and create output node."""
+        if self.transect_stream is None or not self.transect_stream.data:
+            logger.warning("No transect path drawn yet")
+            return
+            
+        xs_list = self.transect_stream.data.get('xs', [])
+        ys_list = self.transect_stream.data.get('ys', [])
+        
+        if not xs_list or len(xs_list[0]) < 2:
+            logger.warning("Transect path must have at least 2 points")
+            return
+            
+        path_xs = xs_list[0]
+        path_ys = ys_list[0]
+        
+        logger.info(f"Creating transect with {len(path_xs)} vertices from 3D data")
+        
+        if self.add_node_callback is None:
+            logger.warning("No add_node_callback found for transect creation")
+            return
+            
+        from model.transect_utils import extract_transect, get_transect_title
+        from model.TwoDNode import TwoDNode
+        
+        # Extract transect data (3D -> 2D: distance × 3rd coord)
+        transect_data = extract_transect(self.data, path_xs, path_ys)
+        
+        # Generate title
+        start_point = (path_xs[0], path_ys[0])
+        end_point = (path_xs[-1], path_ys[-1])
+        title = get_transect_title(self.title, start_point, end_point)
+        
+        # Create TwoDNode for 2D transect output (non-geographic)
+        # Note: This will show distance × third_coord as a heatmap
+        new_node = TwoDNode(
+            id=f"{self.id}_transect",
+            data=transect_data,
+            title=title,
+            field_name=self.field_name,
+            plot_type=PlotType.Transect_2D,
+            parent=self
+        )
+        
+        self.add_node_callback(new_node)
+        logger.info(f"Created transect node: {new_node.id}")
 
     def _make_nav_controls(self, first_cb, prev_cb, next_cb, last_cb, label=None, anim_coord=None):
         btn_style = {'margin': '0px 2px'}
@@ -159,7 +260,7 @@ class ThreeDNode(FigureNode):
         if label:
             row_content.append(pn.pane.Markdown(f"**{label}:**", align='center', margin=(0, 10)))
         
-        # Add animate button to the row
+        # Add navigation and animation buttons to the row
         row_content.extend([btn_first, btn_prev, btn_next, btn_last, btn_anim, pn.layout.HSpacer()])
         
         return pn.Row(*row_content, align='center')

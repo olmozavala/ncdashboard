@@ -81,7 +81,7 @@ class FourDNode(ThreeDNode):
         rasterized = rasterize(self.dmap, width=800).apply.opts(
             cmap=self.param.cmap,
             cnorm=self.cnorm,
-            tools=['hover'],
+            tools=['hover', 'save', 'copy'],
             colorbar=True,
             responsive=True,
             aspect='equal'
@@ -92,7 +92,10 @@ class FourDNode(ThreeDNode):
 
         # Overlay with tiles
         tiles = gv.tile_sources.OSM()
-        return (tiles * rasterized).opts(active_tools=['wheel_zoom', 'pan'])
+        return (tiles * rasterized).opts(
+            active_tools=['wheel_zoom', 'pan'],
+            default_tools=['pan', 'wheel_zoom', 'save', 'copy', 'reset']
+        )
 
     def get_stream_source(self):
         if not hasattr(self, 'dmap'):
@@ -126,6 +129,58 @@ class FourDNode(ThreeDNode):
     
     def get_depth_idx(self):
         return self.depth_idx
+    
+    def _create_transect(self):
+        """
+        Override transect creation for 4D data.
+        Creates spatial transect (lat/lon) preserving time and depth dimensions.
+        Output is a ThreeDNode with time slider (distance × depth, navigable by time).
+        """
+        if self.transect_stream is None or not self.transect_stream.data:
+            logger.warning("No transect path drawn yet")
+            return
+            
+        xs_list = self.transect_stream.data.get('xs', [])
+        ys_list = self.transect_stream.data.get('ys', [])
+        
+        if not xs_list or len(xs_list[0]) < 2:
+            logger.warning("Transect path must have at least 2 points")
+            return
+            
+        path_xs = xs_list[0]
+        path_ys = ys_list[0]
+        
+        logger.info(f"Creating spatial transect with {len(path_xs)} vertices from 4D data")
+        
+        if self.add_node_callback is None:
+            logger.warning("No add_node_callback found for transect creation")
+            return
+            
+        from model.transect_utils import extract_transect, get_transect_title
+        
+        # Extract transect data (4D -> 3D: time × depth × distance)
+        transect_data = extract_transect(self.data, path_xs, path_ys)
+        
+        # Generate title
+        start_point = (path_xs[0], path_ys[0])
+        end_point = (path_xs[-1], path_ys[-1])
+        title = get_transect_title(self.title, start_point, end_point)
+        
+        # Create ThreeDNode for 3D transect output
+        # The output has dims: [time, depth, distance]
+        # We'll display it as distance × depth with time navigation
+        new_node = ThreeDNode(
+            id=f"{self.id}_transect",
+            data=transect_data,
+            third_coord_idx=0,
+            title=title,
+            field_name=self.field_name,
+            plot_type=PlotType.Transect_3D,
+            parent=self
+        )
+        
+        self.add_node_callback(new_node)
+        logger.info(f"Created transect node: {new_node.id}")
 
     def get_controls(self):
         # Time controls from parent (specifying animate_coord)

@@ -28,6 +28,9 @@ class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
         self.view_container = None
         self.add_node_callback = None
         self.cnorm = 'linear'
+        
+        # Stream for click marker
+        self.marker_stream = hv.streams.Tap(x=None, y=None)
 
         self.long_name = field_name
         self.units = 'no units'
