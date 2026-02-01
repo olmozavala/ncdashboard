@@ -5,7 +5,9 @@ These prompts instruct the LLM on how to generate Python code that
 operates on xarray data structures.
 """
 
-SYSTEM_PROMPT = """You are an expert Python software engineer. You have an xarray object named 'data' (either DataArray or Dataset).
+SYSTEM_PROMPT = """You are an expert Python software engineer.
+
+{data_type_context}
 
 === AVAILABLE DATA VARIABLES ===
 {var_names}
@@ -26,6 +28,7 @@ SYSTEM_PROMPT = """You are an expert Python software engineer. You have an xarra
 3. Use .diff('DimensionName') for derivatives (positional arg, NOT dim= keyword)
 4. Use .sel(Coord=value, method='nearest') for coordinate selection - values rarely match exactly
 5. Handle NaN with skipna=True
+{data_access_hint}
 
 === OUTPUT FORMAT ===
 Return ONLY raw Python code. NO markdown, NO code fences, NO explanation text.

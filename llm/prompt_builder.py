@@ -116,12 +116,23 @@ class PromptBuilder:
         var_names, vars_info_text = self._get_variables_info()
         coords_info = self._get_coordinates_info()
         
+        # Determine data type and provide appropriate context
+        if isinstance(self.data, xr.Dataset):
+            data_type_context = "You have an xarray Dataset named 'data' with multiple variables."
+            data_access_hint = "\n6. Access variables using data['variable_name']"
+        else:
+            # DataArray
+            data_type_context = "You have an xarray DataArray named 'data'."
+            data_access_hint = "\n6. Work directly with 'data' - it's already a single variable (DataArray)"
+        
         prompt = SYSTEM_PROMPT.format(
+            data_type_context=data_type_context,
             var_names=self._format_list(var_names),
             vars_info=vars_info_text,
             coords_info=coords_info,
             user_request=user_request,
             additional_context=additional_context,
+            data_access_hint=data_access_hint,
         )
         
         return prompt
