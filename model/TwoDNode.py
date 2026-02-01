@@ -145,9 +145,15 @@ class TwoDNode(FigureNode):
         end_point = (path_xs[-1], path_ys[-1])
         title = get_transect_title(self.title, start_point, end_point)
         
+        # Use callback if available to generate unique ID
+        if self.id_generator_callback:
+            node_id = self.id_generator_callback(f"{self.id}_transect")
+        else:
+            node_id = f"{self.id}_transect"
+
         # Create OneDNode for 1D transect output
         new_node = OneDNode(
-            id=f"{self.id}_transect",
+            id=node_id,
             data=transect_data,
             title=title,
             field_name=self.field_name,

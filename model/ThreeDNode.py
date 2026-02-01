@@ -75,9 +75,6 @@ class ThreeDNode(FigureNode):
         
         # Link range stream for viewport tracking
         self.range_stream.source = rasterized
-        
-        # Ensure the range stream is linked to the output for viewport tracking
-        self.range_stream.source = rasterized
 
         # Overlay with tiles
         tiles = gv.tile_sources.OSM()
@@ -146,9 +143,15 @@ class ThreeDNode(FigureNode):
         # Use provided data or default to self.data
         data_to_use = data if data is not None else self.data
 
+        # Use callback if available to generate unique ID
+        if self.id_generator_callback:
+            node_id = self.id_generator_callback(f"{self.id}_anim")
+        else:
+            node_id = f"{self.id}_anim"
+
         # Create Animation Node (High Resolution, PlateCarree)
         # Using self as parent allows the animation node to be aware of its origin
-        anim_node = AnimationNode(self.id, data_to_use, animation_coord, Resolutions.HIGH.value, 
+        anim_node = AnimationNode(node_id, data_to_use, animation_coord, Resolutions.HIGH.value, 
                                   title=self.title, field_name=self.field_name, 
                                   bbox=self.bbox, parent=self, cmap=self.cmap,
                                   x_range=x_range, y_range=y_range)

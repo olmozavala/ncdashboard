@@ -92,10 +92,22 @@ class FourDNode(ThreeDNode):
 
         # Overlay with tiles
         tiles = gv.tile_sources.OSM()
-        return (tiles * rasterized).opts(
+        base_plot = (tiles * rasterized).opts(
             active_tools=['wheel_zoom', 'pan'],
             default_tools=['pan', 'wheel_zoom', 'save', 'copy', 'reset']
         )
+
+        # Overlay with click marker
+        def _get_marker(x, y):
+            kdims = [self.coord_names[-1], self.coord_names[-2]]
+            if x is None or y is None:
+                return gv.Points([], kdims=kdims, crs=ccrs.PlateCarree())
+            return gv.Points([(x, y)], kdims=kdims, crs=ccrs.PlateCarree()).opts(
+                color='yellow', size=15, marker='star', line_color='black', line_width=1
+            )
+            
+        marker_dmap = gv.project(hv.DynamicMap(_get_marker, streams=[self.marker_stream]), projection=ccrs.GOOGLE_MERCATOR)
+        return base_plot * marker_dmap
 
     def get_stream_source(self):
         if not hasattr(self, 'dmap'):
@@ -166,11 +178,17 @@ class FourDNode(ThreeDNode):
         end_point = (path_xs[-1], path_ys[-1])
         title = get_transect_title(self.title, start_point, end_point)
         
+        # Use callback if available to generate unique ID
+        if self.id_generator_callback:
+            node_id = self.id_generator_callback(f"{self.id}_transect")
+        else:
+            node_id = f"{self.id}_transect"
+
         # Create ThreeDNode for 3D transect output
         # The output has dims: [time, depth, distance]
         # We'll display it as distance × depth with time navigation
         new_node = ThreeDNode(
-            id=f"{self.id}_transect",
+            id=node_id,
             data=transect_data,
             third_coord_idx=0,
             title=title,

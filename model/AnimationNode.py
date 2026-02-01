@@ -15,8 +15,8 @@ from holoviews.operation.datashader import rasterize
 
 logger = logging.getLogger("model.AnimationNode")
 
-# Set tolerance for irregular grids globally for this module
-hv.config.image_rtol = 0.01
+# Set tolerance for irregular grids so Image does not warn (default 0.01 is strict)
+hv.config.image_rtol = 0.1
 
 class AnimationNode(FigureNode):
     def __init__(self, id, data, animation_coord, resolution, title=None, field_name=None, 
@@ -159,7 +159,7 @@ class AnimationNode(FigureNode):
             
             # Handle descending latitudes if necessary (common in netCDF)
             lats = data[lat_dim].values
-            if lats[0] > lats[-1]:
+            if len(lats) > 1 and lats[0] > lats[-1]:
                 lat_slice = slice(max_lat + lat_buffer, min_lat - lat_buffer)
             else:
                 lat_slice = slice(min_lat - lat_buffer, max_lat + lat_buffer)

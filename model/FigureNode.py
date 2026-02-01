@@ -27,7 +27,29 @@ class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
         self.field_name = field_name
         self.view_container = None
         self.add_node_callback = None
+        self.id_generator_callback = None
+        self.maximized = False
         self.cnorm = 'linear'
+        
+        # Background color for relationship tracking
+        PASTEL_COLORS = [
+            '#F2F1EF', # Warm gray (Very pale)
+            '#EEF2F5', # Cool gray (Very pale)
+            '#F3F7FB', # Very pale blue
+            '#F8F6F2', # Very pale beige
+            '#E2EAF4', # Muted Blue (Slightly more color)
+            '#E2F4EA', # Muted Green (Slightly more color)
+            '#F4E2E2', # Muted Pink (Slightly more color)
+            '#E5E7EB'  # Muted Slate (Slightly more color)
+        ]
+        
+        if 'background_color' in params:
+            self.background_color = params['background_color']
+        elif parent and hasattr(parent, 'background_color') and parent.id != 'root':
+            self.background_color = parent.background_color
+        else:
+            import random
+            self.background_color = random.choice(PASTEL_COLORS)
         
         # Stream for click marker
         self.marker_stream = hv.streams.Tap(x=None, y=None)

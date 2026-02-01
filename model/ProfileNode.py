@@ -40,7 +40,7 @@ class ProfileNode(FigureNode):
         # Flip valid for Depth (if positive)
         # We can handle this via invert_yaxis in options or modifying data
         vals = coordinate.values
-        if self.dim_prof.lower() == 'depth':
+        if self.dim_prof.lower() == 'depth' and len(vals) > 1:
              if vals[1] > vals[0]:
                  # Inverted depth-like coordinate
                  vals = -vals
