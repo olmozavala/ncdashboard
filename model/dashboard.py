@@ -489,3 +489,98 @@ class Dashboard:
             new_id = field_name + f'_{count}'
             count += 1
         return new_id
+    
+    def create_figure_from_dataarray(
+        self,
+        data: xr.DataArray,
+        parent_node,
+        title: str,
+        layout_container
+    ):
+        """
+        Create an appropriate figure from an xarray DataArray.
+        
+        Determines the node type based on data dimensionality and creates
+        the corresponding visualization.
+        
+        Args:
+            data: xarray DataArray to visualize
+            parent_node: Parent node for the new figure
+            title: Title for the figure
+            layout_container: Panel container to add the figure to
+        """
+        from loguru import logger
+        
+        # Determine dimensionality
+        ndims = len(data.dims)
+        logger.info(f"Creating figure from DataArray: dims={data.dims}, shape={data.shape}")
+        
+        # Generate unique ID
+        base_id = f"llm_{title[:20].replace(' ', '_').lower()}"
+        node_id = self.id_generator(base_id)
+        
+        # Get or set field name
+        field_name = data.name or "llm_output"
+        
+        # Ensure the data has a name attribute  
+        if data.name is None:
+            data.name = field_name
+        
+        # Create appropriate node type based on dimensions
+        if ndims == 1:
+            plot_type = PlotType.OneD
+            new_node = OneDNode(
+                node_id, 
+                data, 
+                title=title,
+                field_name=field_name,
+                plot_type=plot_type,
+                parent=parent_node
+            )
+        elif ndims == 2:
+            plot_type = PlotType.TwoD
+            new_node = TwoDNode(
+                node_id,
+                data,
+                title=title,
+                field_name=field_name,
+                plot_type=plot_type,
+                parent=parent_node
+            )
+        elif ndims == 3:
+            plot_type = PlotType.ThreeD
+            new_node = ThreeDNode(
+                node_id,
+                data,
+                title=title,
+                field_name=field_name,
+                plot_type=plot_type,
+                parent=parent_node,
+                third_coord_idx=0
+            )
+        else:  # 4D or more
+            plot_type = PlotType.FourD
+            new_node = FourDNode(
+                node_id,
+                data,
+                title=title,
+                field_name=field_name,
+                plot_type=plot_type,
+                parent=parent_node,
+                time_idx=0,
+                depth_idx=0
+            )
+        
+        # Add to parent
+        parent_node.add_child(new_node)
+        
+        # Create the figure UI
+        self.create_default_figure(
+            None, 
+            plot_type, 
+            layout_container=layout_container, 
+            new_node=new_node
+        )
+        
+        logger.info(f"Created LLM figure: id={node_id}, type={plot_type.name}")
+        return new_node
