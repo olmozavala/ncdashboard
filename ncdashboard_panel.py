@@ -105,6 +105,14 @@ class NcDashboard:
     def init_menu(self):
         self.sidebar_area.clear()
         
+        button_style = """
+        :host(.bk-btn) {
+            font-size: 12px;
+            padding: 4px 8px;
+            min-height: 32px;
+        }
+        """
+        
         var_widgets = []
         for var_type in ["4D", "3D", "2D", "1D"]:
             fields = self.ncdash.get_field_names(var_type)
@@ -114,8 +122,11 @@ class NcDashboard:
             var_column = pn.Column(pn.pane.Markdown(f"### {var_type} Vars"))
             for name, field, dims in fields:
                 # Create a button for each variable for one-click plotting
-                # Using 'default' or 'light' for a clean look
-                btn = pn.widgets.Button(name=f"{name} {dims}", sizing_mode='stretch_width')
+                btn = pn.widgets.Button(
+                    name=f"{name} {dims}", 
+                    sizing_mode='stretch_width',
+                    stylesheets=[button_style]
+                )
                 
                 # Use a factory function to capture the scope correctly
                 def make_plot_callback(f, vt):
@@ -125,7 +136,12 @@ class NcDashboard:
                 var_column.append(btn)
             var_widgets.append(var_column)
 
-        close_all_btn = pn.widgets.Button(name="Close all", button_type='danger')
+        close_all_btn = pn.widgets.Button(
+            name="Close all", 
+            button_type='danger',
+            sizing_mode='stretch_width',
+            stylesheets=[button_style]
+        )
         close_all_btn.on_click(lambda e: self.main_area.clear())
 
         # Save State: download current dashboard state as JSON
@@ -138,11 +154,16 @@ class NcDashboard:
             filename="ncdashboard_state.json",
             callback=state_download_callback,
             button_type="primary",
-            sizing_mode='stretch_width'
+            sizing_mode='stretch_width',
+            stylesheets=[button_style]
         )
 
         # Load State: upload a JSON/YAML file to restore dashboard
-        load_state_input = pn.widgets.FileInput(accept='.json,.yml,.yaml', name="")
+        load_state_input = pn.widgets.FileInput(
+            accept='.json,.yml,.yaml', 
+            name="Load State", # Adding name to identify the input
+            sizing_mode='stretch_width'
+        )
         
         def on_load_state(event):
             if load_state_input.value:
@@ -164,11 +185,10 @@ class NcDashboard:
         load_state_input.param.watch(on_load_state, 'value')
 
         # Add items to sidebar in desired order
-        # Options/Actions at the top
-        self.sidebar_area.append(close_all_btn)
-        self.sidebar_area.append(pn.pane.Markdown("### Save State"))
+        # Actions at the top: Save, Close All, Load
         self.sidebar_area.append(save_state_btn)
-        self.sidebar_area.append(pn.pane.Markdown("### Load State"))
+        self.sidebar_area.append(close_all_btn)
+        self.sidebar_area.append(pn.pane.Markdown("**Load State**", margin=(10, 5, 0, 5)))
         self.sidebar_area.append(load_state_input)
         
         # Add variable buttons below
