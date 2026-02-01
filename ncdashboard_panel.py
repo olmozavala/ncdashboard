@@ -188,7 +188,7 @@ class NcDashboard:
         # Actions at the top: Save, Close All, Load
         self.sidebar_area.append(save_state_btn)
         self.sidebar_area.append(close_all_btn)
-        self.sidebar_area.append(pn.pane.Markdown("**Load State**", margin=(10, 5, 0, 5)))
+        self.sidebar_area.append(pn.pane.Markdown("### Load State"))
         self.sidebar_area.append(load_state_input)
         
         # Add variable buttons below
