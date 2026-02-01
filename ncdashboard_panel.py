@@ -161,7 +161,7 @@ class NcDashboard:
         # Load State: upload a JSON/YAML file to restore dashboard
         load_state_input = pn.widgets.FileInput(
             accept='.json,.yml,.yaml', 
-            name="Load State", # Adding name to identify the input
+            name="", 
             sizing_mode='stretch_width'
         )
         
