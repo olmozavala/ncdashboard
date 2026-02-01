@@ -53,6 +53,7 @@ class CodeExecutor:
             'print': print,
             'range': range,
             'round': round,
+            'slice': slice,  # Needed for .sel(dim=slice(a, b))
             'sorted': sorted,
             'str': str,
             'sum': sum,
@@ -156,6 +157,7 @@ def run_with_retry(
     
     # First attempt - build initial prompt
     prompt = prompt_builder.build_prompt(user_request, additional_context=hints)
+    logger.info(f"User request: '{user_request}' | Hints applied: {bool(hints)}")
     
     last_result: Optional[ExecutionResult] = None
     
@@ -164,6 +166,7 @@ def run_with_retry(
         
         try:
             # Generate code from LLM
+            logger.debug(f"=== PROMPT SENT TO LLM ===\n{prompt}\n=== END PROMPT ===")
             code = llm_client.generate(prompt)
             logger.debug(f"Generated code:\n{code}")
             

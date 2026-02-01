@@ -93,15 +93,39 @@ class OllamaClient(BaseLLMClient):
             return False
     
     def _extract_code(self, response: str) -> str:
-        """Extract Python code from response, removing markdown fences."""
+        """Extract Python code from response, handling markdown and explanations."""
+        import re
+        
+        # First, try to find code blocks with ```python or ``` markers
+        # Look for the LAST code block (often the corrected version)
+        python_blocks = re.findall(r'```python\s*(.*?)```', response, re.DOTALL)
+        if python_blocks:
+            return python_blocks[-1].strip()
+        
+        # Try generic code blocks
+        code_blocks = re.findall(r'```\s*(.*?)```', response, re.DOTALL)
+        if code_blocks:
+            # Filter out blocks that look like they contain the prompt or error message
+            for block in reversed(code_blocks):
+                block = block.strip()
+                if block and not block.startswith('User request:') and 'ERROR MESSAGE' not in block:
+                    return block
+        
+        # No code blocks found - try to use the whole response
         code = response.strip()
-        # Remove markdown code blocks if present
-        if code.startswith("```python"):
-            code = code[9:]
-        elif code.startswith("```"):
-            code = code[3:]
-        if code.endswith("```"):
-            code = code[:-3]
+        # Remove common LLM preamble phrases
+        preambles = [
+            "Here is the corrected code:",
+            "Here is the code:",
+            "Fixed code:",
+            "The corrected code is:",
+            "Here's the fixed code:",
+        ]
+        for preamble in preambles:
+            if preamble in code:
+                code = code.split(preamble, 1)[1].strip()
+                break
+        
         return code.strip()
 
 

@@ -20,16 +20,20 @@ SYSTEM_PROMPT = """You are an expert Python software engineer. You have an xarra
 === USER REQUEST ===
 {user_request}
 
-=== RULES ===
-1. The output MUST be stored in a variable called 'output'
-2. 'output' MUST be an xarray DataArray (not Dataset)
-3. Use ONLY xarray and numpy libraries (available as 'xr' and 'np')
-4. To access a variable from a Dataset, use data['variable_name']
-5. To compute mean along a dimension, use .mean(dim='dim_name')
-6. Provide ONLY Python code - no imports, no comments, no explanations
-7. Handle potential NaN values with skipna=True where appropriate
+=== CRITICAL RULES ===
+1. Store result in variable 'output' (MUST be xarray DataArray)
+2. Use ONLY 'data', 'xr', 'np' - NO imports allowed
+3. Use .diff('DimensionName') for derivatives (positional arg, NOT dim= keyword)
+4. Use .sel(Coord=value, method='nearest') for coordinate selection - values rarely match exactly
+5. Handle NaN with skipna=True
 
-Provide Python code:"""
+=== OUTPUT FORMAT ===
+Return ONLY raw Python code. NO markdown, NO code fences, NO explanation text.
+BAD: ```python\ncode\n```
+BAD: Here is the code:\ncode
+GOOD: output = data['var'].mean('MT')
+
+Python code:"""
 
 
 ERROR_CORRECTION_PROMPT = """You are an expert Python software engineer. Your previous code failed to execute.
@@ -61,10 +65,34 @@ Fixed code:"""
 HINTS = {
     "vorticity": """
 For vorticity calculations on a lat/lon grid:
-- Use proper spherical geometry: dx = dlon * R * cos(lat), dy = dlat * R
-- Earth radius R ≈ 6371000 meters
-- Vorticity = dv/dx - du/dy (where u=eastward, v=northward velocity)
-- Use xr.DataArray.diff() for derivatives
+- Vorticity = dv/dx - du/dy (u=eastward velocity, v=northward velocity)  
+- Find the velocity variable names from the AVAILABLE DATA VARIABLES section
+- Use .diff('Longitude') and .diff('Latitude') for derivatives (positional arg, not keyword)
+- The dimension names are: MT (time), Depth, Latitude, Longitude
+- DO NOT use groupby for differentiation
+- Example code structure:
+  u = data['u']  # replace with actual eastward velocity variable name
+  v = data['v']  # replace with actual northward velocity variable name
+  dv_dx = v.diff('Longitude')
+  du_dy = u.diff('Latitude')
+  output = (dv_dx - du_dy).isel(Depth=0).mean('MT')  # Select one depth and average over time
+""",
+
+    "transect": """
+For creating transects/slices along coordinates:
+- Use .sel() with method='nearest' for exact locations
+- Use .sel() with slice() for ranges
+- Example for longitude range at fixed latitude:
+  output = data['temp'].sel(Latitude=24, method='nearest').sel(Longitude=slice(-90, -85))
+- For a transect along a line, select a slice and keep remaining dimensions
+""",
+
+    "slice": """
+For slicing data along coordinates:
+- Use .sel() with exact values or slice()
+- Use method='nearest' when exact coordinate value may not exist
+- Example: data['temp'].sel(Longitude=-90, method='nearest')
+- For ranges: data.sel(Longitude=slice(-90, -85))
 """,
 
     "unit_conversion": """
@@ -76,8 +104,8 @@ For temperature unit conversions:
 
     "gradient": """
 For computing gradients:
-- Use np.gradient() or xr.DataArray.diff()
-- Account for coordinate spacing
+- Use .diff(dim='dimension_name') for derivatives along a dimension
+- DO NOT use np.gradient on DataArrays directly
 - Handle edge cases appropriately
 """,
 
