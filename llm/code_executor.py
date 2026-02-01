@@ -62,6 +62,18 @@ class CodeExecutor:
         }
     }
     
+    def _strip_imports(self, code: str) -> str:
+        """Remove import statements from code since they're not allowed in sandbox."""
+        lines = code.split('\n')
+        filtered_lines = []
+        for line in lines:
+            stripped = line.strip()
+            # Skip import statements
+            if stripped.startswith('import ') or stripped.startswith('from '):
+                continue
+            filtered_lines.append(line)
+        return '\n'.join(filtered_lines)
+    
     def execute(self, code: str, data: xr.DataArray | xr.Dataset) -> ExecutionResult:
         """
         Execute code in sandboxed environment.
@@ -76,6 +88,9 @@ class CodeExecutor:
         # Create sandbox with data
         sandbox = dict(self.ALLOWED_GLOBALS)
         sandbox['data'] = data
+        
+        # Strip import statements (LLMs often add them despite instructions)
+        code = self._strip_imports(code)
         
         try:
             # Execute the code
