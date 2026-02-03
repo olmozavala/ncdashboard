@@ -280,44 +280,42 @@ class Dashboard:
         def toggle_size(event):
             if container.sizing_mode == 'fixed':
                 # Maximizing
-                container.sizing_mode = 'stretch_both'
-                container.width = None
-                container.height = None
-                container.max_width = None
-                
-                container.styles.update({
-                    'height': '85vh', 
-                    'width': '95vw',
-                    'z-index': '1000',
-                    'position': 'relative'
+                new_styles = container.styles.copy()
+                new_styles.update({
+                    'flex': '1 1 100%',
                 })
+                container.param.update(
+                    sizing_mode='stretch_width',
+                    width=None,
+                    max_width=None,
+                    height=None,
+                    min_height=800,
+                    styles=new_styles
+                )
                 
-                container.margin = (5, 5)
                 max_btn.name = "🗗" # Symbol for restore
                 new_node.maximized = True
             else:
                 # Restoring
-                container.styles.update({
-                    'height': 'auto',
-                    'width': '600px',
-                    'z-index': '1',
-                    'position': 'static'
+                new_styles = container.styles.copy()
+                new_styles.update({
+                    'flex': 'none'
                 })
-
-                container.sizing_mode = 'fixed'
-                container.width = 600
-                container.max_width = 600
-                container.height = None
-                container.min_height = 480
+                container.param.update(
+                    sizing_mode='fixed',
+                    width=600,
+                    max_width=600,
+                    height=None,
+                    min_height=480,
+                    styles=new_styles
+                )
                 
-                container.margin = (10, 10)
                 max_btn.name = "⛶" # Symbol for maximize
                 new_node.maximized = False
             
-            # Trigger re-render/re-rasterization of the figure
-            pane.param.trigger('object')
-            container.param.trigger('styles')
-            container.param.trigger('sizing_mode')
+            # Small delay before triggering re-render helps stabilize the layout
+            # and prevents the "jumping" effect as the browser settles.
+            pn.state.execute(lambda: pane.param.trigger('object'))
         
         max_btn.on_click(toggle_size)
 
