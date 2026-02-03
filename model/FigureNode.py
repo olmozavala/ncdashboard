@@ -53,6 +53,7 @@ class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
         
         # Stream for click marker
         self.marker_stream = hv.streams.Tap(x=None, y=None)
+        self.clicked_points = []
 
         self.long_name = field_name
         self.units = 'no units'

@@ -250,8 +250,11 @@ class Dashboard:
             def tap_callback(x, y):
                 if x is None or y is None: 
                     return
-                # Update marker stream
+                # Update marker list and stream
+                new_node.clicked_points.append((x, y))
                 new_node.marker_stream.event(x=x, y=y)
+                # Show notification for feedback
+                pn.state.notifications.success(f"Profile generated at {y:0.2f}, {x:0.2f}", duration=2000)
                 # Create profile
                 self.create_profiles(new_node.id, x, y, layout_container)
             

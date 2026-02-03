@@ -27,7 +27,7 @@ import holoviews as hv
 import geoviews as gv
 
 # Initialize Panel extension using Bootstrap
-pn.extension(design='bootstrap', browser_info=True)
+pn.extension(design='bootstrap', browser_info=True, notifications=True)
 hv.extension('bokeh')
 gv.extension('bokeh')
 # Suppress "not evenly sampled" warning for Image with irregular lat/lon

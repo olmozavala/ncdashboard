@@ -60,11 +60,19 @@ class TwoDNode(FigureNode):
         # Overlay with click marker
         def _get_marker(x, y):
             kdims = [self.coord_names[-1], self.coord_names[-2]]
-            if x is None or y is None:
-                return gv.Points([], kdims=kdims, crs=ccrs.PlateCarree())
-            return gv.Points([(x, y)], kdims=kdims, crs=ccrs.PlateCarree()).opts(
-                color='yellow', size=15, marker='star', line_color='black', line_width=1
+            
+            # Previous points in yellow
+            prev_points = self.clicked_points[:-1]
+            # Latest point in red to show "it has just clicked"
+            latest_point = self.clicked_points[-1:]
+            
+            p_prev = gv.Points(prev_points, kdims=kdims, crs=ccrs.PlateCarree()).opts(
+                color='yellow', size=12, marker='star', line_color='black', line_width=1
             )
+            p_latest = gv.Points(latest_point, kdims=kdims, crs=ccrs.PlateCarree()).opts(
+                color='red', size=15, marker='star', line_color='black', line_width=1
+            )
+            return p_prev * p_latest
             
         marker_dmap = gv.project(hv.DynamicMap(_get_marker, streams=[self.marker_stream]), projection=ccrs.GOOGLE_MERCATOR)
         self.base_plot = self.base_plot * marker_dmap
