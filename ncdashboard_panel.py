@@ -50,12 +50,48 @@ class NcDashboard:
         self.analysis_modal = None
         self.analysis_status = None
         
+        # Custom loading indicator (Bouncing Dots)
+        dots_css = """
+        .dots-loader {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            height: 30px;
+        }
+        .dots-loader div {
+            width: 8px;
+            height: 8px;
+            background-color: #ffffff;
+            border-radius: 50%;
+            display: inline-block;
+            animation: bounce 0.6s infinite alternate;
+        }
+        .dots-loader div:nth-child(2) { animation-delay: 0.2s; }
+        .dots-loader div:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes bounce {
+            from { transform: translateY(0); opacity: 1; }
+            to { transform: translateY(-8px); opacity: 0.3; }
+        }
+        """
+        self.loading_indicator = pn.pane.HTML(
+            '<div class="dots-loader"><div></div><div></div><div></div></div>',
+            stylesheets=[dots_css],
+            width=50, height=30, align='center', margin=(0, 0, 0, 10),
+            visible=False
+        )
+        
+        # Link visibility to the global busy state
+        pn.state.param.watch(lambda e: setattr(self.loading_indicator, 'visible', e.new), 'busy')
+
         # Initialize the template
         self.template = pn.template.BootstrapTemplate(
             title='NcDashboard',
             sidebar=[self.sidebar_area],
             main=[self.main_area],
-            header_background='#354869'
+            header=[self.loading_indicator],
+            header_background='#354869',
+            busy_indicator=None  # Disable default spinner on the right
         )
         
         try:
