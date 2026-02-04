@@ -211,8 +211,11 @@ class Dashboard:
             c_field = state.get("field_name")
             
         # Get data shape for logging
-        shape_str = str(self.data[c_field].shape)
-        logger.info(f"Creating new plot - Dimensions: {dims_str}, Field: {c_field}, Shape: {shape_str}")
+        try:
+            shape_str = str(self.data[c_field].shape)
+            logger.info(f"Creating new plot - Dimensions: {dims_str}, Field: {c_field}, Shape: {shape_str}")
+        except Exception:
+            logger.info(f"Creating new plot - Dimensions: {dims_str}, Field: {c_field}, Shape: Unknown (not in root dataset)")
 
         if new_node is None:
             id = state.get("id", self.id_generator(c_field)) if state else self.id_generator(c_field)
@@ -510,8 +513,6 @@ class Dashboard:
             title: Title for the figure
             layout_container: Panel container to add the figure to
         """
-        from loguru import logger
-        
         # Determine dimensionality
         ndims = len(data.dims)
         logger.info(f"Creating figure from DataArray: dims={data.dims}, shape={data.shape}")

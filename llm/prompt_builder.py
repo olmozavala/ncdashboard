@@ -7,7 +7,7 @@ to help LLMs generate accurate Python code.
 
 import xarray as xr
 from typing import Optional
-from .prompts.base import SYSTEM_PROMPT, ERROR_CORRECTION_PROMPT
+from .prompts.base import SYSTEM_PROMPT, ERROR_CORRECTION_PROMPT, CRITICAL_RULES, OUTPUT_FORMAT
 
 
 class PromptBuilder:
@@ -133,6 +133,8 @@ class PromptBuilder:
             user_request=user_request,
             additional_context=additional_context,
             data_access_hint=data_access_hint,
+            critical_rules=CRITICAL_RULES,
+            output_format=OUTPUT_FORMAT,
         )
         
         return prompt
@@ -162,6 +164,10 @@ class PromptBuilder:
             user_request=user_request,
             previous_code=previous_code,
             error_message=error_message,
+            data_type_context=data_type_context,
+            data_access_hint=data_access_hint,
+            critical_rules=CRITICAL_RULES,
+            output_format=OUTPUT_FORMAT,
         )
         
         return prompt
