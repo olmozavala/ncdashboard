@@ -9,16 +9,25 @@ from typing import Any
 
 from model.FigureNode import FigureNode
 from model.model_utils import PlotType
-
+from proj_layout.utils import get_available_cmaps, get_cmap_object
 
 def _cmap_to_name(cmap: Any) -> str:
-    """Return a string name for a colormap (matplotlib or string)."""
+    """Return a string name for a colormap (matplotlib, colorcet, or string)."""
     if cmap is None:
         return "viridis"
     if isinstance(cmap, str):
         return cmap
+    
+    # Try to find the name by comparing with known colormaps
+    # This handles colorcet lists which don't have a .name attribute
+    available_names = get_available_cmaps()
+    for name in available_names:
+        if get_cmap_object(name) == cmap:
+            return name
+            
     if hasattr(cmap, "name"):
         return getattr(cmap, "name", "").split(".")[-1] or "viridis"
+    
     return "viridis"
 
 

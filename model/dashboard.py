@@ -11,7 +11,7 @@ from model.FigureNode import FigureNode
 import panel as pn
 import holoviews as hv
 from model.model_utils import PlotType, select_profile, select_spatial_location
-from proj_layout.utils import select_colormap
+from proj_layout.utils import select_colormap, get_available_cmaps, get_cmap_object, CMAP_GROUPS, get_cmap_html_preview, get_cmap_css_gradient
 from model import state as state_module
 
 class Dashboard:
@@ -52,11 +52,7 @@ class Dashboard:
 
     def _cmap_from_name(self, name: str):
         """Resolve colormap name (cmocean or matplotlib) to object."""
-        import cmocean
-        cmo_names = ['thermal', 'haline', 'algae', 'matter', 'turbid', 'speed', 'amp', 'tempo', 'gray', 'balance', 'curl', 'diff', 'oxy', 'dense', 'ice', 'deep']
-        if name in cmo_names:
-            return getattr(cmocean.cm, name)
-        return name
+        return get_cmap_object(name)
 
     def _apply_node_state(self, node, state: dict):
         """Apply saved state (cmap, cnorm, indices) to a node."""
@@ -326,47 +322,124 @@ class Dashboard:
         if (state and state.get('maximized')) or getattr(new_node, 'maximized', False):
              toggle_size(None)
 
-        # --- UI Controls for the Plot ---
-        import cmocean
-        cmo_names = ['thermal', 'haline', 'algae', 'matter', 'turbid', 'speed', 'amp', 'tempo', 'gray', 'balance', 'curl', 'diff', 'oxy', 'dense', 'ice', 'deep']
-        cmap_options = cmo_names + ['viridis', 'inferno', 'plasma', 'magma', 'rainbow', 'jet', 'coolwarm']
-        
         # Determine initial colormap
         initial_cmap = 'viridis' 
         if hasattr(new_node.cmap, 'name'):
             name = new_node.cmap.name.split('.')[-1]
-            if name in cmap_options:
+            if name in get_available_cmaps():
                 initial_cmap = name
 
-        # Colormap Select
-        cmap_select = pn.widgets.Select(
-            name="", options=cmap_options, value=initial_cmap,
-            width=120, height=30, align='center', margin=(0, 10)
+        # --- Visual Colormap Gallery ---
+        gallery_container = pn.FlexBox(
+            sizing_mode='stretch_width', 
+            visible=False,
+            styles={'padding': '10px', 'background': '#fdfdfd', 'border': '1px solid #ddd', 'border-radius': '5px'}
         )
+        
+        def select_cmap_from_gallery(cmap_name):
+             new_node.cmap = get_cmap_object(cmap_name)
+             # Update preview on the button
+             cmap_btn.object = get_cmap_html_preview(cmap_name, width='80px')
+             gallery_container.visible = False
+             
+             # Clear cache for animations
+             if hasattr(new_node, '_cache'):
+                 new_node._cache.clear()
+             # For animations, we still trigger the UI sync
+             if hasattr(new_node, 'player'):
+                 new_node.player.param.trigger('value')
 
-        def update_plot_view(event):
-            # Update Node parameters - This triggers the reactive HoloViews pipeline
-            # without replacing the pane.object, thus preserving zoom/pan perfectly.
-            if event.obj == cmap_select:
-                new_val = event.new
-                new_cmap = getattr(cmocean.cm, new_val) if new_val in cmo_names else new_val
-                new_node.cmap = new_cmap
+        # Build gallery items
+        for group, names in CMAP_GROUPS.items():
+             gallery_container.append(pn.pane.Markdown(f"**{group}**", sizing_mode='stretch_width', margin=(5, 0)))
+             for name in names:
+                  prev = get_cmap_html_preview(name, width='50px', height='20px')
+                  # Create a clickable preview
+                  btn = pn.widgets.StaticText(value=prev, align='center', margin=(2, 2), styles={'cursor': 'pointer'})
+                  # We use a hacky way to make it clickable by wrapping in a button or using a StaticText with watcher? 
+                  # Better use a real Button with zero padding and HTML content if possible, 
+                  # but Panel buttons don't support HTML easily. 
+                  # Let's use a small Button with the name and a tooltip
+                  item_btn = pn.widgets.Button(
+                       name="", 
+                       button_type='light', 
+                       width=55, height=25, 
+                       margin=2,
+                       stylesheets=[f":host .bk-btn {{ background: {get_cmap_css_gradient(name)}; border: 1px solid #ccc; padding: 0; }}"],
+                       description=name
+                  )
+                  # Capture name in closure
+                  def make_cb(n):
+                       return lambda e: select_cmap_from_gallery(n)
+                  item_btn.on_click(make_cb(name))
+                  gallery_container.append(item_btn)
 
-            # Clear cache for animations
-            if hasattr(new_node, '_cache'):
-                new_node._cache.clear()
+        # Toggle gallery button
+        cmap_btn = pn.pane.HTML(
+            get_cmap_html_preview(initial_cmap, width='80px'),
+            width=80, height=30, align='center', margin=(0, 5),
+            styles={'cursor': 'pointer', 'border': '2px solid #354869', 'border-radius': '6px'}
+        )
+        
+        def toggle_gallery(event):
+             gallery_container.visible = not gallery_container.visible
+             
+        # Add click event to HTML pane 
+        cmap_btn.param.watch(toggle_gallery, 'object') # This is a bit hacky, let's use a button instead
 
-            # For animations, we still trigger the UI sync
-            if hasattr(new_node, 'player'):
-                new_node.player.param.trigger('value')
+        # Better: A button that shows the current cmap and toggles the gallery
+        select_toggle_btn = pn.widgets.Button(
+            name="🎨 Colors", 
+            button_type="light", 
+            width=80, height=30, align='center', margin=(0, 5),
+            stylesheets=[f":host .bk-btn {{ background: {get_cmap_css_gradient(initial_cmap)}; color: white; text-shadow: 1px 1px 2px black; font-weight: bold; border: 2px solid #354869; }}"]
+        )
+        
+        def update_toggle_btn_style(cmap_name):
+             select_toggle_btn.stylesheets = [f":host .bk-btn {{ background: {get_cmap_css_gradient(cmap_name)}; color: white; text-shadow: 1px 1px 2px black; font-weight: bold; border: 2px solid #354869; }}"]
 
-        cmap_select.param.watch(update_plot_view, 'value')
+        def on_gallery_toggle(event):
+             gallery_container.visible = not gallery_container.visible
+             
+        select_toggle_btn.on_click(on_gallery_toggle)
+
+        # Sync gallery selection with toggle button style
+        def select_cmap_from_gallery_v2(cmap_name):
+             new_node.cmap = get_cmap_object(cmap_name)
+             update_toggle_btn_style(cmap_name)
+             gallery_container.visible = False
+             
+             # Clear cache for animations
+             if hasattr(new_node, '_cache'):
+                 new_node._cache.clear()
+             # For animations, we still trigger the UI sync
+             if hasattr(new_node, 'player'):
+                 new_node.player.param.trigger('value')
+
+        # Clear and rebuild gallery with V2 callback
+        gallery_container.clear()
+        for group, names in CMAP_GROUPS.items():
+             gallery_container.append(pn.pane.Markdown(f"**{group}**", sizing_mode='stretch_width', margin=(5, 5, 0, 5)))
+             group_flex = pn.FlexBox(sizing_mode='stretch_width')
+             for name in names:
+                  item_btn = pn.widgets.Button(
+                       name="", 
+                       width=45, height=20, 
+                       margin=2,
+                       stylesheets=[f":host .bk-btn {{ background: {get_cmap_css_gradient(name)}; border: 1px solid #444; padding: 0; min-height: 20px; }}"],
+                       description=name # Tooltip
+                  )
+                  def make_cb_v2(n):
+                       return lambda e: select_cmap_from_gallery_v2(n)
+                  item_btn.on_click(make_cb_v2(name))
+                  group_flex.append(item_btn)
+             gallery_container.append(group_flex)
 
         # Header with Controls
         close_btn = pn.widgets.Button(name="x", button_type="danger", width=30, height=30, align='center')
         header_row = pn.Row(
             pn.pane.Markdown("**Cmap:**", align='center', margin=(0, 0, 0, 5)),
-            cmap_select,
+            select_toggle_btn,
             pn.layout.HSpacer(),
             max_btn,
             close_btn
@@ -391,7 +464,7 @@ class Dashboard:
         # Navigation Buttons (Delegated to Node)
         nav_row = new_node.get_controls()
 
-        container.extend([header_row, pane])
+        container.extend([header_row, gallery_container, pane])
         if nav_row:
              container.append(nav_row)
 

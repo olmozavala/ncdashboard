@@ -80,7 +80,6 @@ class FourDNode(ThreeDNode):
         # Apply rasterization to the DynamicMap
         rasterized = rasterize(self.dmap, width=800).apply.opts(
             cmap=self.param.cmap,
-            cnorm=self.cnorm,
             tools=['hover', 'save', 'copy'],
             colorbar=True,
             responsive=True,

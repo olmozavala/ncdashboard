@@ -36,13 +36,13 @@ class TwoDNode(FigureNode):
         def _get_image(cmap):
             return self.img.opts(cmap=cmap, cnorm=self.cnorm)
         
-        # Create stream for cmap
-        self.param_stream = hv.streams.Params(self, ['cmap'])
+        # Create stream for cmap and cnorm
+        self.param_stream = hv.streams.Params(self, ['cmap', 'cnorm'])
         self.dmap = hv.DynamicMap(_get_image, streams=[self.param_stream])
 
         # Project to Web Mercator BEFORE rasterizing for best performance/quality
         projected = gv.project(self.dmap, projection=ccrs.GOOGLE_MERCATOR)
-        rasterized = rasterize(projected, how=self.cnorm).opts(
+        rasterized = rasterize(projected).opts(
             tools=['hover', 'save', 'copy'],
             colorbar=True,
             responsive=True,

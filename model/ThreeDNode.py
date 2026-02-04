@@ -66,7 +66,6 @@ class ThreeDNode(FigureNode):
         # We use .apply.opts to link cmap to the parameter reactively
         rasterized = rasterize(self.dmap, width=800).apply.opts(
             cmap=self.param.cmap,
-            cnorm=self.cnorm,
             tools=['hover', 'save', 'copy'],
             colorbar=True,
             responsive=True,

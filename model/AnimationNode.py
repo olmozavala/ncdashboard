@@ -112,9 +112,8 @@ class AnimationNode(FigureNode):
         
         # Rasterize inside the callback with dynamic=False
         # We cap the width at 400px to reduce binary payload size for better animation speed
-        result = rasterize(img, dynamic=False, width=400, how=self.cnorm).opts(
+        result = rasterize(img, dynamic=False, width=400).opts(
             cmap=self.cmap,
-            cnorm=self.cnorm,
             colorbar=True,
             tools=['hover'],
             responsive=True,
