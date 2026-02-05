@@ -114,6 +114,7 @@ class AnimationNode(FigureNode):
         # We cap the width at 400px to reduce binary payload size for better animation speed
         result = rasterize(img, dynamic=False, width=400).opts(
             cmap=self.cmap,
+            clim=self.clim,
             colorbar=True,
             tools=['hover'],
             responsive=True,

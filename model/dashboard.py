@@ -66,6 +66,8 @@ class Dashboard:
             node.third_coord_idx = state["third_coord_idx"]
         if hasattr(node, "depth_idx") and "depth_idx" in state:
             node.depth_idx = state["depth_idx"]
+        if "clim" in state and state["clim"] is not None:
+            node.clim = tuple(state["clim"])
 
     def get_state(self) -> dict:
         """Return full dashboard state for saving (path, regex, figures tree)."""
@@ -329,6 +331,38 @@ class Dashboard:
             if name in get_available_cmaps():
                 initial_cmap = name
 
+        # Determine initial clim
+        try:
+            # We sample a subset for performance if it's too large, or just use min/max
+            # For xarray, .min().values is usually fast enough if it's not a dask array
+            dmin = float(new_node.data.min())
+            dmax = float(new_node.data.max())
+        except:
+            dmin, dmax = 0, 1
+            
+        initial_clim = getattr(new_node, 'clim', (dmin, dmax))
+        if initial_clim == (None, None):
+            initial_clim = (round(dmin, 1), round(dmax, 1))
+            new_node.clim = initial_clim
+        else:
+            initial_clim = (round(initial_clim[0], 1), round(initial_clim[1], 1))
+
+        # Clim Inputs
+        min_input = pn.widgets.FloatInput(name='', value=initial_clim[0], width=85, height=30, align='center', margin=(0, 2), format='0.0')
+        max_input = pn.widgets.FloatInput(name='', value=initial_clim[1], width=85, height=30, align='center', margin=(0, 2), format='0.0')
+
+        def update_clim(event):
+            new_node.clim = (min_input.value, max_input.value)
+            # Clear cache for animations
+            if hasattr(new_node, '_cache'):
+                new_node._cache.clear()
+            # For animations, trigger UI sync
+            if hasattr(new_node, 'player'):
+                new_node.player.param.trigger('value')
+
+        min_input.param.watch(update_clim, 'value')
+        max_input.param.watch(update_clim, 'value')
+
         # --- Visual Colormap Gallery ---
         gallery_container = pn.FlexBox(
             sizing_mode='stretch_width', 
@@ -440,6 +474,9 @@ class Dashboard:
         header_row = pn.Row(
             pn.pane.Markdown("**Cmap:**", align='center', margin=(0, 0, 0, 5)),
             select_toggle_btn,
+            pn.pane.Markdown("**Rng:**", align='center', margin=(0, 0, 0, 10)),
+            min_input,
+            max_input,
             pn.layout.HSpacer(),
             max_btn,
             close_btn

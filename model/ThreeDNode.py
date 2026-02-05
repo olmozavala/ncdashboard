@@ -51,11 +51,11 @@ class ThreeDNode(FigureNode):
 
         # Use geoviews Image for geographic plotting
         img = gv.Image((lons, lats, data.values), [self.coord_names[-1], self.coord_names[-2]], crs=ccrs.PlateCarree())
-        return img.opts(title=title, cmap=colormap, cnorm=self.cnorm)
+        return img.opts(title=title, cmap=colormap, cnorm=self.cnorm, clim=self.clim)
 
     def create_figure(self):
-        # Create a stream that watches for cmap and cnorm changes
-        self.param_stream = hv.streams.Params(self, ['cnorm', 'cmap'])
+        # Create a stream that watches for cmap, cnorm and clim changes
+        self.param_stream = hv.streams.Params(self, ['cnorm', 'cmap', 'clim'])
 
         # Return a DynamicMap that updates when update_stream or range_stream is triggered
         # We also watch param_stream so the title (which shows the scale) updates
@@ -63,9 +63,10 @@ class ThreeDNode(FigureNode):
                                   streams=[self.update_stream, self.range_stream, self.param_stream])
         
         # Apply rasterization to the DynamicMap
-        # We use .apply.opts to link cmap to the parameter reactively
+        # We use .apply.opts to link cmap and clim to the parameter reactively
         rasterized = rasterize(self.dmap, width=800).apply.opts(
             cmap=self.param.cmap,
+            clim=self.param.clim,
             tools=['hover', 'save', 'copy'],
             colorbar=True,
             responsive=True,

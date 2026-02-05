@@ -16,6 +16,7 @@ class ParameterizedABC(param.parameterized.ParameterizedMetaclass, ABCMeta):
 class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
     cmap = param.Parameter()
     cnorm = param.Selector(default='linear', objects=['linear', 'log', 'eq_hist'])
+    clim = param.Tuple(default=(None, None), length=2)
 
     def __init__(self, id, data, title=None, field_name=None, bbox=None, plot_type = PlotType.TwoD, 
                  parent=None,  cmap=None, **params):

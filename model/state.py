@@ -46,6 +46,7 @@ def _serialize_node(node: FigureNode, parent_id: str) -> dict[str, Any]:
         "parent_id": parent_id,
         "cmap": _cmap_to_name(node.get_cmap()),
         "cnorm": getattr(node, "cnorm", "linear"),
+        "clim": list(node.clim) if node.clim else None
     }
 
     # View extent (zoom/domain) for 3D/4D nodes that have range_stream
