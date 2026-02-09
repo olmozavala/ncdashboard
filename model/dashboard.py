@@ -333,10 +333,11 @@ class Dashboard:
 
         # Determine initial clim
         try:
-            # We sample a subset for performance if it's too large, or just use min/max
-            # For xarray, .min().values is usually fast enough if it's not a dask array
-            dmin = float(new_node.data.min())
-            dmax = float(new_node.data.max())
+            # We use mean +/- 1 std for a more robust initial range
+            mean = float(new_node.data.mean())
+            std = float(new_node.data.std())
+            dmin = mean - std
+            dmax = mean + std
         except:
             dmin, dmax = 0, 1
             
