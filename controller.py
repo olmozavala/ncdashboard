@@ -1,7 +1,7 @@
 import dash
 from dash import dcc, html, ctx, Input, Output, State, ALL, callback, Patch
 import logging
-from model.TreeNode import PlotType
+from model.model_utils import PlotType
 from model.model_utils import print_tree
 from textwrap import dedent as d
 from dash import dcc, html, ctx, Input, Output, State, ALL, callback, Patch
@@ -50,13 +50,19 @@ class NcDashboard:
                             [ 
                                 dbc.Button("Plot selected fields", id="but_plot_all", color="success", size='lg'),
                                 dbc.Button("Close all", id="but_close_all", color="danger", size='lg', className="ms-2"),
-                                dcc.Download(id="download-data"),
+                                dbc.Button("Save State", id="but_save_state", color="primary", size='lg', className="ms-2"),
+                                dcc.Download(id="download-state"),
+                                dcc.Upload(
+                                    id='upload-state',
+                                    children=dbc.Button("Load State", color="info", size='lg', className="ms-2"),
+                                    multiple=False
+                                ),
                                 dcc.Loading(
                                     id="loading-1",
                                     children=[html.Div(id="loading-output-1")],
                                     type="circle",
                                 ),
-                            ], width={"size": 6, "offset": 4}),
+                            ], width={"size": 10, "offset": 1}, className="d-flex justify-content-center mt-3"),
                     ]
                 ),
                 dbc.Row([], id="display_area"),
@@ -67,7 +73,7 @@ class NcDashboard:
         self.register_callbacks()
 
     def start(self):
-        self.app.run_server(debug=False, port=self.port, host=self.host)
+        self.app.run(debug=False, port=self.port, host=self.host)
 
     def initial_menu(self):
         return [
@@ -92,6 +98,17 @@ class NcDashboard:
             return self.initial_menu()
 
         @self.app.callback(
+            Output("download-state", "data"),
+            Input("but_save_state", "n_clicks"),
+            prevent_initial_call=True
+        )
+        def save_state(n_clicks):
+            if n_clicks:
+                state = self.ncdash.get_state()
+                return dict(content=json.dumps(state, indent=2), filename="ncdashboard_state.json")
+            return no_update
+
+        @self.app.callback(
             Output("display_area", "children"),
             Output("loading-output-1", "children"),
             State("display_area", "children"),
@@ -112,14 +129,16 @@ class NcDashboard:
             Input({"type": "prev_frame", "index":ALL}, 'n_clicks'),
             Input({"type": "next_frame", "index":ALL}, 'n_clicks'),
             Input({"type": "last_frame", "index":ALL}, 'n_clicks'),
-            Input('window-size', 'data')
+            Input('window-size', 'data'),
+            Input('upload-state', 'contents'),
+            State('upload-state', 'filename'),
         )
         def display_relayout_data(prev_children, selected_1d, selected_2d, selected_3d, selected_4d, 
                                 n_clicks_plot_separated, click_data_identifiers,
                                 n_clicks_requestanimation, resolution_list, close_list, download_list,
                                 click_data_list, selected_data_list,
                                     n_clicks_first_frame, n_clicks_prev_frame, n_clicks_next_frame, n_clicks_last_frame,
-                                    window_size):
+                                    window_size, upload_contents, upload_filename):
 
             # TODO we need to be able to separate this function, at least to call methods somewhere else 
             window_ratio = 0.8
@@ -132,15 +151,35 @@ class NcDashboard:
                 # print width, height
                 print(f"Window Width: {width}, Window Height: {height}")
 
+            from dash import no_update
+            import base64
+            import json
+
             triggered_id = ctx.triggered_id
-            print(f'Type: {type(triggered_id)}, Value: {triggered_id}')
-
-            print(f'1D: {selected_1d}, 2D: {selected_2d}, 3D: {selected_3d}, 4D: {selected_4d}')
-            # Check the one trigered was but_plot_all
-
+            logging.info(f'Callback triggered by: {triggered_id}')
+            
             patch = Patch()
             plot_types = [PlotType.OneD, PlotType.TwoD, PlotType.ThreeD, PlotType.FourD]
-                    
+            
+            # Case 1: Loading State from file
+            if triggered_id == 'upload-state':
+                if upload_contents is None:
+                    return no_update, []
+                
+                content_type, content_string = upload_contents.split(',')
+                decoded = base64.b64decode(content_string)
+                try:
+                    state_dict = json.loads(decoded.decode('utf-8'))
+                    # For loading state, we return a fresh list of children instead of a patch
+                    # to ensure we replace everything.
+                    new_children = []
+                    self.ncdash.tree_root.children = [] # Clear current tree
+                    self.ncdash.apply_state(state_dict, new_children)
+                    return new_children, []
+                except Exception as e:
+                    logging.exception(f"Error loading state: {e}")
+                    return prev_children, [html.Div(f"Error loading state: {e}", style={'color': 'red'})]
+
             # Initial case, do nothing
             if triggered_id == None:
                 return [], []
@@ -151,8 +190,10 @@ class NcDashboard:
                     if selected!= None and len(selected) > 0:
 
                         for c_field in selected:
+                            logging.info(f'Creating figure for field: {c_field} with type: {plot_types[i]}')
                             new_figure = self.ncdash.create_default_figure(c_field, plot_types[i])
                             patch.append(new_figure)
+                            logging.info(f'Appended figure for {c_field} to patch')
 
             # Closing a plot
             elif type(triggered_id) == dash._utils.AttributeDict and triggered_id['type'] == 'close_figure': # type: ignore

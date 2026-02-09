@@ -1,19 +1,85 @@
 import cmocean
+import colorcet as cc
 import numpy as np
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
+from functools import lru_cache
+
+# Comprehensive list of colormaps grouped by source/type
+CMAP_GROUPS = {
+    "Cmocean": ['thermal', 'haline', 'algae', 'matter', 'turbid', 'speed', 'amp', 'tempo', 'gray', 'balance', 'curl', 'diff', 'oxy', 'dense', 'ice', 'deep'],
+    "Colorcet": ['rainbow', 'fire', 'bgy', 'bgyw', 'bky', 'kbc', 'coolwarm', 'CET_L1', 'CET_L2', 'CET_R2', 'CET_D1', 'phase', 'cyclic_rainbow'],
+    "Standard": ['viridis', 'inferno', 'plasma', 'magma', 'cividis', 'rainbow', 'jet', 'nipy_spectral', 'gist_rainbow', 'terrain', 'ocean', 'RdBu_r', 'Spectral_r', 'twilight']
+}
+
+CNORM_OPTIONS = ['linear', 'log', 'eq_hist']
+
+def get_available_cmaps():
+    """Returns a flat list of all available colormap names."""
+    all_cmaps = []
+    for group in CMAP_GROUPS.values():
+        all_cmaps.extend(group)
+    # Remove duplicates but preserve order
+    return list(dict.fromkeys(all_cmaps))
+
+@lru_cache(maxsize=128)
+def get_cmap_css_gradient(name, steps=10):
+    """
+    Returns a CSS linear-gradient string for the given colormap name.
+    """
+    cmap_obj = get_cmap_object(name)
+    try:
+        # Resolve to a matplotlib colormap if possible
+        if isinstance(cmap_obj, str):
+            cmap = plt.get_cmap(cmap_obj)
+        else:
+            cmap = cmap_obj
+            
+        # If the cmap is a list (e.g. from Colorcet), wrap it in a ListedColormap
+        if not callable(cmap):
+            cmap = mcolors.ListedColormap(cmap)
+
+        # Sample the colormap
+        colors = [cmap(i) for i in np.linspace(0, 1, steps)]
+        # Convert to hex
+        hex_colors = [mcolors.to_hex(c) for c in colors]
+        return f"linear-gradient(to right, {', '.join( hex_colors)})"
+    except Exception as e:
+        # print(f"Error generating CSS gradient for {name}: {e}")
+        return "linear-gradient(to right, gray, white)"
+
+def get_cmap_html_preview(name, width='100%', height='20px'):
+    """
+    Returns an HTML div with a background gradient representing the colormap.
+    """
+    gradient = get_cmap_css_gradient(name)
+    return f'<div style="width: {width}; height: {height}; background: {gradient}; border-radius: 4px; border: 1px solid #ccc;"></div>'
+
+def get_cmap_object(name):
+    """Resolve colormap name to a colormap object (cmocean, colorcet, or string)."""
+    if not isinstance(name, str):
+        return name
+
+    # Try Cmocean first
+    if name in CMAP_GROUPS["Cmocean"]:
+        if hasattr(cmocean.cm, name):
+            return getattr(cmocean.cm, name)
+    
+    # Try Colorcet
+    if name in CMAP_GROUPS["Colorcet"] or name.startswith('CET_'):
+        if hasattr(cc, name):
+            return getattr(cc, name)
+            
+    return name
 
 def select_colormap(field_name):
     '''
-    Based on the name if the field it chooses a colormap from cmocean
-    Args:
-        field_name:
-
-    Returns:
-
+    Based on the name if the field it chooses a colormap from cmocean.
+    Returns the colormap object directly, compatible with HoloViews/Matplotlib.
     '''
     field_name = field_name.lower()
-    cmap = cmocean.cm.gray_r
+    cmap = cmocean.cm.thermal # Sensible default
     if np.any([field_name.find(x) != -1 for x in ('ssh', 'srfhgt', 'adt','surf_el')]):
-        # cmaps_fields.append(cmocean.cm.deep_r)
         cmap = cmocean.cm.curl
     elif np.any([field_name.find(x) != -1 for x in ('temp', 'sst', 'temperature','t2m')]):
         cmap = cmocean.cm.thermal
@@ -29,78 +95,8 @@ def select_colormap(field_name):
         cmap = cmocean.cm.oxy
     elif np.any([field_name.find(x) != -1 for x in ('u10', 'v10', 'u_', 'v_', 'u-vel.', 'v-vel.','velocity')]):
         cmap = cmocean.cm.speed
+    else:
+        # If nothing matches, use colorcet rainbow or viridis
+        cmap = 'viridis'
 
-    return cmocean_to_plotly(cmap, 256)
-
-def cmocean_to_plotly(cmap, pl_entries):
-    '''
-    This function converts a cmocean colormap to a plotly compatible colormap
-    '''
-    h = 1.0/(pl_entries-1)
-    pl_colorscale = []
-    
-    for k in range(pl_entries):
-        C = list(map(np.uint8, np.array(cmap(k*h)[:3])*255))
-        pl_colorscale.append([k*h, 'rgb'+str((C[0], C[1], C[2]))])
-        
-    return pl_colorscale
-
-
-
-# 'drawline', 'drawopenpath', 'drawclosedpath', 'drawcircle', 'drawrect', 'eraseshape', 'select2d', 'lasso2d',
-# Complete list here: https://github.com/plotly/plotly.js/blob/master/src/plot_api/plot_config.js
-def get_buttons_config():
-    def_config = dict(
- 
-                modeBarButtonsToRemove=['zoom2d','zoomOut2d','zoomIn2d'],
-                modeBarButtonsToAdd=['drawline', 'lasso2d', 'select2d'],
-                scrollZoom=True,
-                displayModeBar= True,
-                displaylogo=False,
-            )
-    return def_config
-
-
-def get_def_slider(prefix_name, suffix, n_steps):
-    slider = {"active": 0,
-                "yanchor": "top", # top --> bellow figure bottom --> bottom left corner (inside image)
-                "xanchor": "left",
-                "currentvalue": {
-                    "font": {"size": 20},
-                    "prefix": f"{prefix_name.capitalize()}:",
-                    "suffix": f" {suffix}",
-                    "visible": True,
-                    "xanchor": "left"
-                },
-                "transition": {"duration": 10, "easing": "cubic-in-out"},
-                "len": 1, # (from 0 to 1) 0.5 --> slider is half the width of the figure
-                "x": 0, # 1 moves one figure with to the righ
-                "y": 0, # 1 moves one figure with to the top
-                "steps":[ {'args':[ 
-                                    [f'{prefix_name}_{c_time}'], 
-                                    { 'frame':{"duration": 10, "redraw": True},
-                                    'mode':"immediate"}
-                                    ],
-                        'label':str(c_time),
-                        'method':"animate",
-                        } for c_time in range(n_steps)],
-                    }
-    return slider
-
-def get_update_buttons(dim_names, n_steps):
-    buttons = dict(
-                    type="buttons",
-                    buttons=
-                        [dict(label=f"Play", method="animate", 
-                            args=[[f'{dim_name}_{c_time}' for c_time in range(n_steps[i])], {
-                                    "frame": {"duration": 200, "redraw": True},
-                                    "fromcurrent": True,
-                                    }]) for i, dim_name in enumerate(dim_names)] +
-                        [
-                        dict(label="Pause", method="animate", 
-                            args=[[None], {"frame": {"duration": 0, "redraw": False},
-                                    "mode": "immediate"}]
-                                ),
-                        ]
-                )
-    return buttons
+    return cmap

@@ -1,22 +1,18 @@
 import xarray as xr
-import logging
+from loguru import logger
 from os.path import join
 from model.AnimationNode import AnimationNode
 from model.FourDNode import FourDNode
 from model.OneDNode import OneDNode
 from model.ProfileNode import ProfileNode
 from model.ThreeDNode import ThreeDNode
-from model.TreeNode import FigureNode
-import dash_bootstrap_components as dbc
-from dash import Patch, html, dcc
+from model.TwoDNode import TwoDNode
+from model.FigureNode import FigureNode
+import panel as pn
+import holoviews as hv
 from model.model_utils import PlotType, select_profile, select_spatial_location
-from proj_layout.figures import get_animation_controls, get_frame_controls
-
-from proj_layout.utils import get_buttons_config, get_def_slider, get_update_buttons, select_colormap
-
-logger = logging.getLogger(__name__)
-
-# Make a class with attributes and methods to create a dashboard
+from proj_layout.utils import select_colormap, get_available_cmaps, get_cmap_object, CMAP_GROUPS, get_cmap_html_preview, get_cmap_css_gradient
+from model import state as state_module
 
 class Dashboard:
     def __init__(self, path, regex):
@@ -24,293 +20,680 @@ class Dashboard:
         self.regex = regex
 
         logger.info(f"Opening files in {self.path} with regex {self.regex}")
-        # data = xr.open_dataset('https://tds.hycom.org/thredds/dodsC/GLBa0.08/expt_91.2/2018')
-        # data = xr.open_dataset('https://tds.hycom.org/thredds/dodsC/GLBy0.08/expt_93.0/ts3z', decode_times=False)
-        # data = xr.open_dataset('https://tds.hycom.org/thredds/dodsC/GOMu0.04/expt_90.1m000/data/hindcasts/2023', decode_times=False)
-        # data = xr.open_dataset('https://coastwatch.noaa.gov/thredds/dodsC/CoastWatch/VIIRS/npp-n20/chloci/DailyGlobalDINEOF/WW00/LoM', decode_times=False)
         if isinstance(self.path, list):
             data = xr.open_mfdataset(self.path, decode_times=False)
         else:
             data = xr.open_mfdataset(join(self.path, self.regex), decode_times=False)
 
-        self.tree_root = FigureNode('root', data=data, parent=None) # type: ignore
-        # From data identify which fields are 3D, 2D and 1D
-        four_d = []
-        three_d = []
-        two_d = []
-        one_d = []
+        self.tree_root = TwoDNode('root', data=data, parent=None)
+        
+        # Identify field dimensions
+        self.four_d = []
+        self.three_d = []
+        self.two_d = []
+        self.one_d = []
+        
         for var in data.variables:
-            if len(data[var].shape) == 4:
-                four_d.append(var)
-            if len(data[var].shape) == 3:
-                three_d.append(var)
-            elif len(data[var].shape) == 2:
-                two_d.append(var)
-            elif len(data[var].shape) == 1:
-                one_d.append(var)
+            shape_len = len(data[var].shape)
+            if shape_len == 4:
+                self.four_d.append(var)
+                logger.info(f"Variable {var} added to 4D list")
+            elif shape_len == 3:
+                self.three_d.append(var)
+                logger.info(f"Variable {var} added to 3D list")
+            elif shape_len == 2:
+                self.two_d.append(var)
+                logger.info(f"Variable {var} added to 2D list")
+            elif shape_len == 1:
+                self.one_d.append(var)
+                logger.info(f"Variable {var} added to 1D list")
         
         self.data = data
-        self.four_d = four_d
-        self.three_d = three_d
-        self.two_d = two_d
-        self.one_d = one_d
 
-    def create_default_figure(self, c_field, plot_type, new_node=None, window_ratio = 0.8):
-        '''
-        This method creates a default figure for the dashboard. It is called when the user hits the 'plot' button. 
-        '''
+    def _cmap_from_name(self, name: str):
+        """Resolve colormap name (cmocean or matplotlib) to object."""
+        return get_cmap_object(name)
 
-        col_width = 4
+    def _apply_node_state(self, node, state: dict):
+        """Apply saved state (cmap, cnorm, indices) to a node."""
+        cmap_name = state.get("cmap")
+        if cmap_name:
+            node.cmap = self._cmap_from_name(cmap_name)
+        cnorm = state.get("cnorm")
+        if cnorm and hasattr(node, "cnorm"):
+            node.cnorm = cnorm
+        if hasattr(node, "third_coord_idx") and "third_coord_idx" in state:
+            node.third_coord_idx = state["third_coord_idx"]
+        if hasattr(node, "depth_idx") and "depth_idx" in state:
+            node.depth_idx = state["depth_idx"]
+        if "clim" in state and state["clim"] is not None:
+            node.clim = tuple(state["clim"])
 
-        if new_node is None:
-            id = self.id_generator(c_field)
+    def get_state(self) -> dict:
+        """Return full dashboard state for saving (path, regex, figures tree)."""
+        return state_module.get_state_from_dashboard(self)
 
-            if plot_type == PlotType.ThreeD:
-                new_node = ThreeDNode(id, self.data[c_field], time_idx=0,
-                                        plot_type=plot_type, field_name=c_field, parent=self.tree_root) # type: ignore
-
-            elif plot_type == PlotType.FourD:
-                new_node = FourDNode(id, self.data[c_field], time_idx=0, depth_idx=0, 
-                                        plot_type=plot_type, field_name=c_field, 
-                                        parent=self.tree_root) # type: ignore
-
-            elif plot_type == PlotType.OneD:
-                new_node = OneDNode(id, self.data[c_field], plot_type=plot_type, field_name=c_field, 
-                                        parent=self.tree_root) # type: ignore
-            else: 
-                new_node = FigureNode(id, self.data[c_field], plot_type=plot_type, field_name=c_field, 
-                                        parent=self.tree_root) # type: ignore
-
-            self.tree_root.add_child(new_node) # type: ignore
-
-        fig = new_node.create_figure()
-        plot_type = new_node.get_plot_type()
+    def apply_state(self, state_dict: dict, layout_container) -> None:
+        """
+        Create figures from a saved state (path/regex must match current dashboard).
+        Creates root-level figures first, then children (profiles, animations),
+        applying cmap/cnorm/zoom/indices.
+        """
+        figures = state_dict.get("figures", [])
         
-        coords = new_node.get_animation_coords()
-        # If we have animation coordinates and we are not plotting an animation we make the buttons
-        anim_options = []
-        frame_controls = []
-        if len(coords) > 0 and not plot_type.is_animation():
-            anim_options = get_animation_controls(new_node.id, coords)
-            frame_controls = get_frame_controls(new_node.id, coords) 
+        # Sort figures so parents are created before children
+        # We'll use a simple approach: first root, then others
+        root_figures = [f for f in figures if f.get("parent_id") == "root"]
+        child_figures = [f for f in figures if f.get("parent_id") != "root"]
 
-        if plot_type.is_animation() or plot_type == PlotType.FourD or plot_type == PlotType.ThreeD:
-            # We need a way to track which figures generate 'click_data_list' data.
-            # The chidren MUST be the ID, this H4 is used to identify the figure that clicked inside
-            # HIddden
-            header = html.H4(f"{new_node.id}", style={"backgroundColor": "yellow","display":"none"},
-                                        id={"type": f"click_data_identifier", "index": new_node.id})
-        else:
-            header = html.H4(new_node.id, style={"backgroundColor": "lightblue","display":"none"})
+        # Restore root figures
+        for fig in root_figures:
+            self._restore_figure(fig, layout_container)
 
-        new_figure = dbc.Col(
-                            [
-                                header,
-                                *frame_controls,
-                                # Buttons with reduced pad and margin
-                                html.Div([ dbc.Button("x", id={"type":"close_figure", "index":new_node.id}, color="danger"
-                                                    , size="sm", className="mr-1 mb-1"),
-                                            ], className="d-flex justify-content-end"),
-                                fig,
-                                *anim_options,
-                                # html.Div([ dbc.Button("Download Data", id={"type":"download_data", "index":new_node.id}, 
-                                #                       color="success", size="sm", className="mr-1 mb-1"),
-                                #             ], className="d-flex justify-content-center"),
-                            ],
-                            id = f'figure:{new_node.id}',
-                            width=col_width)
+        # Restore child figures (profiles, animations)
+        # We might need multiple passes if there's deeper nesting, 
+        # but currently it's mostly level 1 children.
+        remaining = child_figures
+        for _ in range(3): # max depth 3 for safety
+            if not remaining: break
+            still_remaining = []
+            for fig in remaining:
+                parent_id = fig.get("parent_id")
+                parent_node = self.tree_root.locate(parent_id)
+                if parent_node:
+                    self._restore_figure(fig, layout_container, parent_node)
+                else:
+                    still_remaining.append(fig)
+            remaining = still_remaining
 
-        return new_figure
+    def _restore_figure(self, fig_state, layout_container, parent_node=None):
+        """Helper to restore a single figure from its state."""
+        pt_name = fig_state.get("plot_type", "TwoD")
+        try:
+            plot_type = getattr(PlotType, pt_name)
+        except AttributeError:
+            plot_type = PlotType.TwoD
 
-    def create_profiles(self, parent_id, clicked_data, patch) -> list:
+        field_name = fig_state.get("field_name")
+        node_id = fig_state.get("id")
+        
+        # For profiles, we need extra info
+        if plot_type == PlotType.OneD and "lat" in fig_state and "lon" in fig_state:
+            self.create_single_profile(
+                fig_state["parent_id"], float(fig_state["lon"]), float(fig_state["lat"]),
+                fig_state["dim_prof"], layout_container, state=fig_state
+            )
+            return
+
+        # For animations, we need to create the AnimationNode
+        if plot_type.is_animation():
+            from model.AnimationNode import AnimationNode
+            from model.model_utils import Resolutions
+            
+            anim_coord = fig_state.get("animation_coord")
+            res_val = fig_state.get("spatial_res", Resolutions.HIGH.value)
+            
+            # Use provided parent or root
+            effective_parent = parent_node or self.tree_root
+            
+            new_node = AnimationNode(
+                node_id, self.data[field_name], anim_coord, res_val,
+                field_name=field_name, parent=effective_parent,
+                x_range=fig_state.get("x_range"), y_range=fig_state.get("y_range")
+            )
+            
+            # Restore frame index if available
+            if "frame_idx" in fig_state and hasattr(new_node, "player"):
+                new_node.player.value = fig_state["frame_idx"]
+                
+            effective_parent.add_child(new_node)
+            self.create_default_figure(None, plot_type, layout_container, new_node=new_node, state=fig_state)
+            return
+
+        # For default plots (2D, 3D, 4D)
+        self.create_default_figure(field_name, plot_type, layout_container=layout_container, state=fig_state)
+        
+        # Restore viewport if applicable
+        node = self.tree_root.locate(node_id)
+        if node and hasattr(node, "range_stream") and node.range_stream is not None:
+            xr, yr = fig_state.get("x_range"), fig_state.get("y_range")
+            if xr is not None and yr is not None and len(xr) >= 2 and len(yr) >= 2:
+                try:
+                    node.range_stream.event(x_range=(float(xr[0]), float(xr[1])), 
+                                            y_range=(float(yr[0]), float(yr[1])))
+                except (TypeError, ValueError):
+                    pass
+
+    def create_single_profile(self, parent_id: str, lon: float, lat: float, dim_prof: str,
+                              layout_container, state=None):
         '''
-        Creates a profile for the given parent_id and clicked_data
+        Creates a single profile for (parent_id, lon, lat, dim_prof) and adds it to layout_container.
+        Used when loading state so we restore exactly one profile per saved entry.
         '''
-
         parent_node = self.tree_root.locate(parent_id)
+        if not parent_node:
+            logger.warning(f"apply_state: parent node {parent_id} not found for profile")
+            return
         data = parent_node.get_data()
         parent_node_id = parent_node.get_id()
         parent_field = parent_node.get_field_name()
-        col_width = 4
-
-        # We are assuming we made it to here because someone clicked on the map
-        # so we need to plot a profile
-
-        lon = clicked_data["points"][0]["x"]
-        lat = clicked_data["points"][0]["y"]
-
         parent_coord_names = parent_node.get_coord_names()
+        subset_data = select_spatial_location(data, lat, lon, parent_coord_names)
+        dims = subset_data.dims
+        if dim_prof not in dims:
+            logger.warning(f"apply_state: dim_prof {dim_prof} not in dims {dims}")
+            return
+        id = state.get("id", self.id_generator(f"{parent_node_id}_{dim_prof}_prof")) if state else self.id_generator(f"{parent_node_id}_{dim_prof}_prof")
+        title = f'{parent_node.get_long_name()} at {lat:0.2f}, {lon:0.2f} ({dim_prof.capitalize()})'
+        profile_data = select_profile(subset_data, dim_prof, dims)
+        new_node = ProfileNode(id, profile_data, lat, lon, dim_prof, title, plot_type=PlotType.OneD,
+                              field_name=parent_field, parent=parent_node)
+        parent_node.add_child(new_node)
+        self.create_default_figure(None, PlotType.OneD, layout_container, new_node=new_node, state=state)
+
+    def create_default_figure(self, c_field, plot_type, layout_container=None, new_node=None, state=None):
+        '''
+        Creates a figure for the dashboard. Returns a Panel object (Column).
+        If state is provided (from load), uses state id/cmap/cnorm/indices and applies them.
+        '''
+        # Log plot creation details
+        dims_str = "Unknown"
+        if plot_type == PlotType.FourD: dims_str = "4D"
+        elif plot_type == PlotType.ThreeD: dims_str = "3D"
+        elif plot_type == PlotType.TwoD: dims_str = "2D"
+        elif plot_type == PlotType.OneD: dims_str = "1D"
+        # Get field name if not provided
+        if c_field is None and new_node is not None:
+            c_field = new_node.get_field_name()
+        if state is not None and c_field is None:
+            c_field = state.get("field_name")
+            
+        # Get data shape for logging
+        try:
+            shape_str = str(self.data[c_field].shape)
+            logger.info(f"Creating new plot - Dimensions: {dims_str}, Field: {c_field}, Shape: {shape_str}")
+        except Exception:
+            logger.info(f"Creating new plot - Dimensions: {dims_str}, Field: {c_field}, Shape: Unknown (not in root dataset)")
+
+        if new_node is None:
+            id = state.get("id", self.id_generator(c_field)) if state else self.id_generator(c_field)
+            third_coord_idx = state.get("third_coord_idx", 0) if state else 0
+            time_idx = state.get("time_idx", 0) if state else 0
+            depth_idx = state.get("depth_idx", 0) if state else 0
+
+            if plot_type == PlotType.ThreeD:
+                new_node = ThreeDNode(id, self.data[c_field], third_coord_idx=third_coord_idx,
+                                        plot_type=plot_type, field_name=c_field, parent=self.tree_root)
+            elif plot_type == PlotType.FourD:
+                new_node = FourDNode(id, self.data[c_field], time_idx=time_idx, depth_idx=depth_idx, 
+                                        plot_type=plot_type, field_name=c_field, parent=self.tree_root)
+            elif plot_type == PlotType.OneD:
+                new_node = OneDNode(id, self.data[c_field], plot_type=plot_type, field_name=c_field, 
+                                        parent=self.tree_root)
+            else: 
+                new_node = TwoDNode(id, self.data[c_field], plot_type=plot_type, field_name=c_field, 
+                                        parent=self.tree_root)
+
+            self.tree_root.add_child(new_node)
+
+        # Apply saved state (cmap, cnorm, indices) when loading
+        if state is not None:
+            self._apply_node_state(new_node, state) 
+
+        # Create HoloViews object
+        hv_obj = new_node.create_figure()
+        
+        # Setup Tap stream for 2D/3D/4D plots (Drill Down)
+        if plot_type in [PlotType.TwoD, PlotType.ThreeD, PlotType.FourD, PlotType.ThreeD_Animation, PlotType.FourD_Animation]:
+            stream_source = new_node.get_stream_source()
+            tap = hv.streams.Tap(source=stream_source)
+            
+            def tap_callback(x, y):
+                if x is None or y is None: 
+                    return
+                # Update marker list and stream
+                new_node.clicked_points.append((x, y))
+                new_node.marker_stream.event(x=x, y=y)
+                # Show notification for feedback
+                pn.state.notifications.success(f"Profile generated at {y:0.2f}, {x:0.2f}", duration=2000)
+                # Create profile
+                self.create_profiles(new_node.id, x, y, layout_container)
+            
+            tap.add_subscriber(tap_callback)
+
+        # Create Panel container
+        # We wrap in a Pane to ensure it renders correctly
+        pane = pn.pane.HoloViews(hv_obj, sizing_mode='stretch_both', min_height=400)
+        
+        container = pn.Column(
+            sizing_mode='fixed', # Allow FlexBox to wrap it
+            width=600, # Approx half width of 1080p screen, or good size for 2-col
+            min_height=480,
+            margin=(10, 10),
+            styles={'background': getattr(new_node, 'background_color', '#f0f0f0'), 'border-radius': '5px', 'padding': '10px'}
+        )
+        
+        # Maximize/Restore Button
+        # Toggle between fixed size and full screen (stretch both)
+        # Using ⛶ (Square Four Corners) for maximize
+        max_btn = pn.widgets.Button(name="⛶", button_type="light", width=40, height=30, align='center', margin=(0, 5, 0, 0))
+        
+        def toggle_size(event):
+            if container.sizing_mode == 'fixed':
+                # Maximizing
+                new_styles = container.styles.copy()
+                new_styles.update({
+                    'flex': '1 1 100%',
+                })
+                container.param.update(
+                    sizing_mode='stretch_width',
+                    width=None,
+                    max_width=None,
+                    height=None,
+                    min_height=800,
+                    styles=new_styles
+                )
+                
+                max_btn.name = "🗗" # Symbol for restore
+                new_node.maximized = True
+            else:
+                # Restoring
+                new_styles = container.styles.copy()
+                new_styles.update({
+                    'flex': 'none'
+                })
+                container.param.update(
+                    sizing_mode='fixed',
+                    width=600,
+                    max_width=600,
+                    height=None,
+                    min_height=480,
+                    styles=new_styles
+                )
+                
+                max_btn.name = "⛶" # Symbol for maximize
+                new_node.maximized = False
+            
+            # Small delay before triggering re-render helps stabilize the layout
+            # and prevents the "jumping" effect as the browser settles.
+            pn.state.execute(lambda: pane.param.trigger('object'))
+        
+        max_btn.on_click(toggle_size)
+
+        # Check for initial maximized state from saved state
+        if (state and state.get('maximized')) or getattr(new_node, 'maximized', False):
+             toggle_size(None)
+
+        # Determine initial colormap
+        initial_cmap = 'viridis' 
+        if hasattr(new_node.cmap, 'name'):
+            name = new_node.cmap.name.split('.')[-1]
+            if name in get_available_cmaps():
+                initial_cmap = name
+
+        # Determine initial clim
+        try:
+            # We use mean +/- 1 std for a more robust initial range
+            mean = float(new_node.data.mean())
+            std = float(new_node.data.std())
+            dmin = mean - std
+            dmax = mean + std
+        except:
+            dmin, dmax = 0, 1
+            
+        initial_clim = getattr(new_node, 'clim', (dmin, dmax))
+        if initial_clim == (None, None):
+            initial_clim = (round(dmin, 1), round(dmax, 1))
+            new_node.clim = initial_clim
+        else:
+            initial_clim = (round(initial_clim[0], 1), round(initial_clim[1], 1))
+
+        # Clim Inputs
+        min_input = pn.widgets.FloatInput(name='', value=initial_clim[0], width=85, height=30, align='center', margin=(0, 2), format='0.0')
+        max_input = pn.widgets.FloatInput(name='', value=initial_clim[1], width=85, height=30, align='center', margin=(0, 2), format='0.0')
+
+        def update_clim(event):
+            new_node.clim = (min_input.value, max_input.value)
+            # Clear cache for animations
+            if hasattr(new_node, '_cache'):
+                new_node._cache.clear()
+            # For animations, trigger UI sync
+            if hasattr(new_node, 'player'):
+                new_node.player.param.trigger('value')
+
+        min_input.param.watch(update_clim, 'value')
+        max_input.param.watch(update_clim, 'value')
+
+        # --- Visual Colormap Gallery ---
+        gallery_container = pn.FlexBox(
+            sizing_mode='stretch_width', 
+            visible=False,
+            styles={'padding': '10px', 'background': '#fdfdfd', 'border': '1px solid #ddd', 'border-radius': '5px'}
+        )
+        
+        def select_cmap_from_gallery(cmap_name):
+             new_node.cmap = get_cmap_object(cmap_name)
+             # Update preview on the button
+             cmap_btn.object = get_cmap_html_preview(cmap_name, width='80px')
+             gallery_container.visible = False
+             
+             # Clear cache for animations
+             if hasattr(new_node, '_cache'):
+                 new_node._cache.clear()
+             # For animations, we still trigger the UI sync
+             if hasattr(new_node, 'player'):
+                 new_node.player.param.trigger('value')
+
+        # Build gallery items
+        for group, names in CMAP_GROUPS.items():
+             gallery_container.append(pn.pane.Markdown(f"**{group}**", sizing_mode='stretch_width', margin=(5, 0)))
+             for name in names:
+                  prev = get_cmap_html_preview(name, width='50px', height='20px')
+                  # Create a clickable preview
+                  btn = pn.widgets.StaticText(value=prev, align='center', margin=(2, 2), styles={'cursor': 'pointer'})
+                  # We use a hacky way to make it clickable by wrapping in a button or using a StaticText with watcher? 
+                  # Better use a real Button with zero padding and HTML content if possible, 
+                  # but Panel buttons don't support HTML easily. 
+                  # Let's use a small Button with the name and a tooltip
+                  item_btn = pn.widgets.Button(
+                       name="", 
+                       button_type='light', 
+                       width=55, height=25, 
+                       margin=2,
+                       stylesheets=[f":host .bk-btn {{ background: {get_cmap_css_gradient(name)}; border: 1px solid #ccc; padding: 0; }}"],
+                       description=name
+                  )
+                  # Capture name in closure
+                  def make_cb(n):
+                       return lambda e: select_cmap_from_gallery(n)
+                  item_btn.on_click(make_cb(name))
+                  gallery_container.append(item_btn)
+
+        # Toggle gallery button
+        cmap_btn = pn.pane.HTML(
+            get_cmap_html_preview(initial_cmap, width='80px'),
+            width=80, height=30, align='center', margin=(0, 5),
+            styles={'cursor': 'pointer', 'border': '2px solid #354869', 'border-radius': '6px'}
+        )
+        
+        def toggle_gallery(event):
+             gallery_container.visible = not gallery_container.visible
+             
+        # Add click event to HTML pane 
+        cmap_btn.param.watch(toggle_gallery, 'object') # This is a bit hacky, let's use a button instead
+
+        # Better: A button that shows the current cmap and toggles the gallery
+        select_toggle_btn = pn.widgets.Button(
+            name="🎨 Colors", 
+            button_type="light", 
+            width=80, height=30, align='center', margin=(0, 5),
+            stylesheets=[f":host .bk-btn {{ background: {get_cmap_css_gradient(initial_cmap)}; color: white; text-shadow: 1px 1px 2px black; font-weight: bold; border: 2px solid #354869; }}"]
+        )
+        
+        def update_toggle_btn_style(cmap_name):
+             select_toggle_btn.stylesheets = [f":host .bk-btn {{ background: {get_cmap_css_gradient(cmap_name)}; color: white; text-shadow: 1px 1px 2px black; font-weight: bold; border: 2px solid #354869; }}"]
+
+        def on_gallery_toggle(event):
+             gallery_container.visible = not gallery_container.visible
+             
+        select_toggle_btn.on_click(on_gallery_toggle)
+
+        # Sync gallery selection with toggle button style
+        def select_cmap_from_gallery_v2(cmap_name):
+             new_node.cmap = get_cmap_object(cmap_name)
+             update_toggle_btn_style(cmap_name)
+             gallery_container.visible = False
+             
+             # Clear cache for animations
+             if hasattr(new_node, '_cache'):
+                 new_node._cache.clear()
+             # For animations, we still trigger the UI sync
+             if hasattr(new_node, 'player'):
+                 new_node.player.param.trigger('value')
+
+        # Clear and rebuild gallery with V2 callback
+        gallery_container.clear()
+        for group, names in CMAP_GROUPS.items():
+             gallery_container.append(pn.pane.Markdown(f"**{group}**", sizing_mode='stretch_width', margin=(5, 5, 0, 5)))
+             group_flex = pn.FlexBox(sizing_mode='stretch_width')
+             for name in names:
+                  item_btn = pn.widgets.Button(
+                       name="", 
+                       width=45, height=20, 
+                       margin=2,
+                       stylesheets=[f":host .bk-btn {{ background: {get_cmap_css_gradient(name)}; border: 1px solid #444; padding: 0; min-height: 20px; }}"],
+                       description=name # Tooltip
+                  )
+                  def make_cb_v2(n):
+                       return lambda e: select_cmap_from_gallery_v2(n)
+                  item_btn.on_click(make_cb_v2(name))
+                  group_flex.append(item_btn)
+             gallery_container.append(group_flex)
+
+        # Header with Controls
+        close_btn = pn.widgets.Button(name="x", button_type="danger", width=30, height=30, align='center')
+        header_row = pn.Row(
+            pn.pane.Markdown("**Cmap:**", align='center', margin=(0, 0, 0, 5)),
+            select_toggle_btn,
+            pn.pane.Markdown("**Rng:**", align='center', margin=(0, 0, 0, 10)),
+            min_input,
+            max_input,
+            pn.layout.HSpacer(),
+            max_btn,
+            close_btn
+        )
+        
+        def close_action(event):
+            if layout_container is not None:
+                # Remove self from layout
+                try:
+                    layout_container.remove(container)
+                except ValueError:
+                    pass # Already removed
+            else:
+                container.visible = False
+            
+            # Remove from tree
+            self.tree_root.remove_id(new_node.id) 
+
+        close_btn.on_click(close_action)
+        
+        # Navigation Buttons for 3D/4D
+        # Navigation Buttons (Delegated to Node)
+        nav_row = new_node.get_controls()
+
+        container.extend([header_row, gallery_container, pane])
+        if nav_row:
+             container.append(nav_row)
+
+        # Store view container in node so it can replace itself (e.g. for animation)
+        new_node.view_container = container
+        new_node.id_generator_callback = self.id_generator
+        
+        # Add to layout if provided
+        if layout_container is not None:
+             layout_container.append(container)
+        
+        # Callback to add new node (e.g. animation) to the dashboard
+        def add_node_cb(added_node):
+             if added_node not in new_node.get_children():
+                  added_node.id_generator_callback = self.id_generator
+                  new_node.add_child(added_node)
+             
+             # Create figure pane (recursively adds to layout_container)
+             # layout_container is captured from closure
+             self.create_default_figure(None, added_node.get_plot_type(), layout_container=layout_container, new_node=added_node)
+             
+        new_node.add_node_callback = add_node_cb
+        
+        return container
+
+    def close_figure(self, node_id, prev_children, patch):
+        """Removes a node from the tree and generates a Dash patch to remove it from UI."""
+        logger.info(f"Closing figure: {node_id}")
+        
+        # Remove from tree
+        self.tree_root.remove_id(node_id)
+        
+        # Find index in prev_children for Dash patch
+        for idx, child in enumerate(prev_children):
+            # Dash IDs are often formatted like "type:index"
+            comp_id = child['props']['id']
+            if isinstance(comp_id, str) and node_id in comp_id:
+                del patch[idx]
+                break
+            elif isinstance(comp_id, dict) and comp_id.get('index') == node_id:
+                del patch[idx]
+                break
+                
+        return patch
+
+    def create_profiles(self, parent_id, lon, lat, layout_container):
+        '''
+        Creates a profile for the given parent_id and triggered coordinates (lon, lat).
+        Adds the result to layout_container.
+        '''
+        parent_node = self.tree_root.locate(parent_id)
+        if not parent_node:
+            return
+
+        data = parent_node.get_data()
+        parent_node_id = parent_node.get_id()
+        parent_field = parent_node.get_field_name()
+        parent_coord_names = parent_node.get_coord_names()
+
+        # Select spatial location
         subset_data = select_spatial_location(data, lat, lon, parent_coord_names)
         dims = subset_data.dims
 
         for c_dim in dims:
             id = self.id_generator(f'{parent_node_id}_{c_dim}_prof')
-            title = f'{parent_node.get_long_name()} at {lat:0.2f}, {lon:0.2f} ({c_dim.capitalize()})' # type: ignore
+            title = f'{parent_node.get_long_name()} at {lat:0.2f}, {lon:0.2f} ({c_dim.capitalize()})'
 
             profile_data = select_profile(subset_data, c_dim, dims)
             
             new_node = ProfileNode(id, profile_data, lat, lon, c_dim, title, plot_type=PlotType.OneD, 
-                                field_name=parent_field, parent=parent_node) # type: ignore
+                                field_name=parent_field, parent=parent_node)
 
             parent_node.add_child(new_node) 
-            fig = new_node.create_figure()
             
-            header = html.H4(new_node.id, style={"backgroundColor": "lightblue","display":"none"})
+            # create_default_figure appends to layout_container automatically
+            self.create_default_figure(None, PlotType.OneD, layout_container, new_node=new_node)
 
-
-            new_figure = dbc.Col(
-                                [
-                                    header,
-                                    # Buttons with reduced pad and margin
-                                    html.Div([ dbc.Button("x", id={"type":"close_figure", "index":new_node.id}, color="danger"
-                                                        , size="sm", className="mr-1 mb-1"),
-                                                ], className="d-flex justify-content-end"),
-                                    fig,
-                                ],
-                                id = f'figure:{new_node.id}',
-                                width=col_width)
-
-            patch.append(new_figure)
-
-        return patch
+    def get_field_names(self, var_type):
+        dim_fields = []
+        if var_type == "1D": dim_fields = self.one_d
+        elif var_type == "2D": dim_fields = self.two_d
+        elif var_type == "3D": dim_fields = self.three_d
+        elif var_type == "4D": dim_fields = self.four_d
         
-    def get_field_names(self, field_dimension) -> list:
-            '''
-            This method returns the field names for a given dimension
-            The dimension can be 1D, 2D, 3D or 4D
-            '''
-            dim_fields = []
-            if field_dimension == "1D":
-                dim_fields = self.one_d
-            elif field_dimension == "2D":
-                dim_fields = self.two_d
-            elif field_dimension == "3D":
-                dim_fields = self.three_d
-            elif field_dimension == "4D":
-                dim_fields = self.four_d
-
-            try:
-                # Using long name form the data
-                dim_name = [self.data[x].long_name for x in dim_fields]
-            except:
-                # Using the variable name
-                dim_name = [x for x in dim_fields]
-
-            return [(dim_name[i],x, str(self.data[x].shape)) for i, x in enumerate(dim_fields)]
+        results = []
+        for f in dim_fields:
+            if hasattr(self.data[f], 'long_name'):
+                name = self.data[f].long_name
+            else:
+                name = f
+            results.append((name, f, str(self.data[f].shape)))
+            
+        return results
 
     def id_generator(self, field_name):
-        '''
-        This method returns an id for a given field name
-        '''
         new_id = field_name
         count = 2
         while self.tree_root.locate(new_id) is not None:
             new_id = field_name + f'_{count}'
             count += 1
-
         return new_id
     
-    def close_figure(self, node_id, prev_children, patch):
-        '''
-        This method closes an exising figure and removes the corresponing object from the tree. 
-        '''
-        # Iterate over the exisiting figures. Remember that on the interface there is
-        # just 'one leve' tree. All the figures are on the 'same level'.
-        for idx, c_child in enumerate(prev_children):
-            # If we found the corresponding figure, remove it from the list of children
-            if c_child['props']['id'].split(':')[1] == node_id:
-                # print(f"Removing child {c_child['props']['id']}")
-                del patch[idx]
-                self.tree_root.remove_id(node_id)
-                break
-
-        return patch 
-
-    def update_figure(self, idx, current_node: FigureNode, patch):
-
-        '''
-        This method creates a new animation figure.
-        '''
-        fig = current_node.create_figure()
-        col_width = 4
+    def create_figure_from_dataarray(
+        self,
+        data: xr.DataArray,
+        parent_node,
+        title: str,
+        layout_container
+    ):
+        """
+        Create an appropriate figure from an xarray DataArray.
         
-        # If we have animation coords and we are not plotting an animation we make the buttons
-        anim_options = []
-
-        header = html.H4(f"{current_node.id}", style={"backgroundColor": "yellow"},
-                                    id={"type": f"click_data_identifier", "index": current_node.id})
-
-        new_figure = dbc.Col(
-                            [
-                                header,
-                                *anim_options,
-                                # Buttons with reduced pad and margin
-                                html.Div([ dbc.Button("x", id={"type":"close_figure", "index":current_node.id}, color="danger"
-                                                    , size="sm", className="mr-1 mb-1"),
-                                            ], className="d-flex justify-content-end"),
-                                fig,
-                            ],
-                            id = f'figure:{current_node.id}',
-                            width=col_width)
-
-        patch[idx] = new_figure
-
-        return patch
-
-    def create_animation_figure(self, parent_id, anim_coord, resolution, patch):
-        '''
-        This method creates a new animation figure.
-        '''
-
-        # TODO need to decide which plot type it is. Based on the parent type. If it was 
-        # a 3D plot, then it should be a 3D animation. If it was a 4D plot, then it should be a 4D animation
-        parent_node = self.tree_root.locate(parent_id)
-
-        if parent_node.get_plot_type() == PlotType.ThreeD:
-            plot_type = PlotType.ThreeD_Animation
-        else:
-            plot_type = PlotType.FourD_Animation
+        Determines the node type based on data dimensionality and creates
+        the corresponding visualization.
         
-        data = parent_node.get_data()
-        parent_node_id = parent_node.get_id()
-        parent_field = parent_node.get_field_name()
-        col_width = 4
-
-        id = self.id_generator(f'{parent_node_id}_{anim_coord}_anim')
-        new_node = AnimationNode(id, data, anim_coord, resolution, plot_type=plot_type, 
-                            field_name=parent_field, parent=parent_node)# type: ignore
-
-        parent_node.add_child(new_node) 
-        fig = new_node.create_figure()
+        Args:
+            data: xarray DataArray to visualize
+            parent_node: Parent node for the new figure
+            title: Title for the figure
+            layout_container: Panel container to add the figure to
+        """
+        # Determine dimensionality
+        ndims = len(data.dims)
+        logger.info(f"Creating figure from DataArray: dims={data.dims}, shape={data.shape}")
         
-        # If we have animation coords and we are not plotting an animation we make the buttons
-        anim_options = []
-
-        header = html.H4(f"{new_node.id}", style={"backgroundColor": "yellow"},
-                                    id={"type": f"click_data_identifier", "index": new_node.id})
-
-        new_figure = dbc.Col(
-                            [
-                                header,
-                                *anim_options,
-                                # Buttons with reduced pad and margin
-                                html.Div([ dbc.Button("x", id={"type":"close_figure", "index":new_node.id}, color="danger"
-                                                    , size="sm", className="mr-1 mb-1"),
-                                            ], className="d-flex justify-content-end"),
-                                fig,
-                            ],
-                            id = f'figure:{new_node.id}',
-                            width=col_width)
-
-        patch.append(new_figure)
-
-        return patch
-
-
-
-
-# Main to test the class
-if __name__ == '__main__':
-    path = "./test_data/"
-    regex = "hycom_gom.nc"
-    obj = Dashboard(path, regex)
+        # Generate unique ID
+        base_id = f"llm_{title[:20].replace(' ', '_').lower()}"
+        node_id = self.id_generator(base_id)
+        
+        # Get or set field name
+        field_name = data.name or "llm_output"
+        
+        # Ensure the data has a name attribute  
+        if data.name is None:
+            data.name = field_name
+        
+        # Create appropriate node type based on dimensions
+        if ndims == 1:
+            plot_type = PlotType.OneD
+            new_node = OneDNode(
+                node_id, 
+                data, 
+                title=title,
+                field_name=field_name,
+                plot_type=plot_type,
+                parent=parent_node
+            )
+        elif ndims == 2:
+            plot_type = PlotType.TwoD
+            new_node = TwoDNode(
+                node_id,
+                data,
+                title=title,
+                field_name=field_name,
+                plot_type=plot_type,
+                parent=parent_node
+            )
+        elif ndims == 3:
+            plot_type = PlotType.ThreeD
+            new_node = ThreeDNode(
+                node_id,
+                data,
+                title=title,
+                field_name=field_name,
+                plot_type=plot_type,
+                parent=parent_node,
+                third_coord_idx=0
+            )
+        else:  # 4D or more
+            plot_type = PlotType.FourD
+            new_node = FourDNode(
+                node_id,
+                data,
+                title=title,
+                field_name=field_name,
+                plot_type=plot_type,
+                parent=parent_node,
+                time_idx=0,
+                depth_idx=0
+            )
+        
+        # Add to parent
+        parent_node.add_child(new_node)
+        
+        # Create the figure UI
+        self.create_default_figure(
+            None, 
+            plot_type, 
+            layout_container=layout_container, 
+            new_node=new_node
+        )
+        
+        logger.info(f"Created LLM figure: id={node_id}, type={plot_type.name}")
+        return new_node

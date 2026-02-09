@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "path": "./test_data/010_merged_all.nc",
+  "regex": "",
+  "figures": [
+    {
+      "id": "ssh_2d",
+      "plot_type": "ThreeD",
+      "field_name": "ssh_2d",
+      "parent_id": "root",
+      "cmap": "diff",
+      "cnorm": "linear",
+      "x_range": [
+        -98.00499725341797,
+        -76.99500274658203
+      ],
+      "y_range": [
+        18.087133407592773,
+        31.96516227722168
+      ],
+      "third_coord_idx": 0
+    },
+    {
+      "id": "ssh_2d_anim",
+      "plot_type": "ThreeD_Animation",
+      "field_name": "ssh_2d",
+      "parent_id": "ssh_2d",
+      "cmap": "curl",
+      "cnorm": "linear",
+      "animation_coord": "MT",
+      "spatial_res": "low",
+      "frame_idx": 2
+    },
+    {
+      "id": "ssh_2d_MT_prof",
+      "plot_type": "OneD",
+      "field_name": "ssh_2d",
+      "parent_id": "ssh_2d",
+      "cmap": "curl",
+      "cnorm": "linear",
+      "lat": 24.897824246529183,
+      "lon": -91.53859106895129,
+      "dim_prof": "MT"
+    },
+    {
+      "id": "u_barotropic_velocity_2d",
+      "plot_type": "ThreeD",
+      "field_name": "u_barotropic_velocity_2d",
+      "parent_id": "root",
+      "cmap": "speed",
+      "cnorm": "linear",
+      "x_range": [
+        -98.00499725341797,
+        -76.99500274658203
+      ],
+      "y_range": [
+        18.087133407592773,
+        31.96516227722168
+      ],
+      "third_coord_idx": 0
+    },
+    {
+      "id": "Depth",
+      "plot_type": "OneD",
+      "field_name": "Depth",
+      "parent_id": "root",
+      "cmap": "gray_r",
+      "cnorm": "linear"
+    },
+    {
+      "id": "water_temp",
+      "plot_type": "FourD",
+      "field_name": "water_temp",
+      "parent_id": "root",
+      "cmap": "thermal",
+      "cnorm": "linear",
+      "x_range": [
+        -98.00499725341797,
+        -76.99500274658203
+      ],
+      "y_range": [
+        18.087133407592773,
+        31.96516227722168
+      ],
+      "third_coord_idx": 0,
+      "depth_idx": 0
+    },
+    {
+      "id": "water_temp_Depth_prof",
+      "plot_type": "OneD",
+      "field_name": "water_temp",
+      "parent_id": "water_temp",
+      "cmap": "thermal",
+      "cnorm": "linear",
+      "lat": 26.052004825085973,
+      "lon": -91.63061921387045,
+      "dim_prof": "Depth"
+    }
+  ]
+}

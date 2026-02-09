@@ -1,20 +1,60 @@
 # An enum with the types of plots
-import plotly.graph_objects as go
-from dash import dcc
+import holoviews as hv
+import panel as pn
 import xarray as xr
 import numpy as np
 
 from model.model_utils import PlotType, get_all_coords
-from proj_layout.utils import get_buttons_config, select_colormap
+from proj_layout.utils import select_colormap
 
-class FigureNode:
+import param
+from abc import ABC, ABCMeta, abstractmethod
+
+class ParameterizedABC(param.parameterized.ParameterizedMetaclass, ABCMeta):
+    pass
+
+class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
+    cmap = param.Parameter()
+    cnorm = param.Selector(default='linear', objects=['linear', 'log', 'eq_hist'])
+    clim = param.Tuple(default=(None, None), length=2)
+
     def __init__(self, id, data, title=None, field_name=None, bbox=None, plot_type = PlotType.TwoD, 
-                 parent=None,  cmap=None):
+                 parent=None,  cmap=None, **params):
+        super().__init__(**params)
         self.parent = parent
         self.id = id
         self.bbox = bbox
         self.children = []
         self.field_name = field_name
+        self.view_container = None
+        self.add_node_callback = None
+        self.id_generator_callback = None
+        self.maximized = False
+        self.cnorm = 'linear'
+        
+        # Background color for relationship tracking
+        PASTEL_COLORS = [
+            '#F2F1EF', # Warm gray (Very pale)
+            '#EEF2F5', # Cool gray (Very pale)
+            '#F3F7FB', # Very pale blue
+            '#F8F6F2', # Very pale beige
+            '#E2EAF4', # Muted Blue (Slightly more color)
+            '#E2F4EA', # Muted Green (Slightly more color)
+            '#F4E2E2', # Muted Pink (Slightly more color)
+            '#E5E7EB'  # Muted Slate (Slightly more color)
+        ]
+        
+        if 'background_color' in params:
+            self.background_color = params['background_color']
+        elif parent and hasattr(parent, 'background_color') and parent.id != 'root':
+            self.background_color = parent.background_color
+        else:
+            import random
+            self.background_color = random.choice(PASTEL_COLORS)
+        
+        # Stream for click marker
+        self.marker_stream = hv.streams.Tap(x=None, y=None)
+        self.clicked_points = []
 
         self.long_name = field_name
         self.units = 'no units'
@@ -22,10 +62,6 @@ class FigureNode:
         try:
             # If there is a long name, then we use it
             self.long_name = data.long_name.capitalize()
-        except:
-            pass
-
-        try:
             # If there are units, then we use them
             self.units = data.units
         except:
@@ -36,14 +72,14 @@ class FigureNode:
         else:
             self.title = title
 
-        self.coord_names = np.array(list(data.coords.keys())) # type: ignorechildren
-        # TODO Move outside of constructor
-
+        self.coord_names = np.array(list(data.dims)) 
         self.plot_type = plot_type
 
         if cmap is None:
             if field_name is not None:
                 self.cmap = select_colormap(self.field_name)
+        else:
+            self.cmap = cmap
 
 
     def locate(self, id) -> 'FigureNode':
@@ -69,8 +105,22 @@ class FigureNode:
                 child.remove_id(id)
 
     # -------- Plotting methods ---------
+    @abstractmethod
     def create_figure(self):
-        print("This method should be overleaded")
+        pass
+
+    def get_stream_source(self):
+        '''
+        Returns the HoloViews object that should be used as source for streams.
+        By default it returns the same as create_figure().
+        '''
+        return self.create_figure()
+
+    def get_controls(self):
+        '''
+        Returns a set of controls for the node.
+        '''
+        return None
 
     def add_child(self, node):
         self.children.append(node)
@@ -100,7 +150,7 @@ class FigureNode:
         return self.parent
 
     def get_coord_names(self):
-        return list(self.data.coords.keys())
+        return list(self.data.dims)
 
     def get_field_name(self):
         return self.field_name

@@ -2,28 +2,35 @@
 # It is used to create a node that can be used to animate a model.
 
 import numpy as np
-import plotly.graph_objects as go
-from dash import dcc
+import holoviews as hv
+import panel as pn
 
-from model.TreeNode import FigureNode
+from model.FigureNode import FigureNode
 from model.model_utils import PlotType, Resolutions
-from model.model_utils import PlotType, get_all_coords, select_anim_data
-from proj_layout.utils import get_buttons_config, get_def_slider, get_update_buttons, select_colormap
 
+import logging
+import cartopy.crs as ccrs
+import geoviews as gv
+from holoviews.operation.datashader import rasterize
+
+logger = logging.getLogger("model.AnimationNode")
+
+# Set tolerance for irregular grids so Image does not warn (default 0.01 is strict)
+hv.config.image_rtol = 0.1
 
 class AnimationNode(FigureNode):
-    # This is the constructor for the AnimationNode class. It calls its parent's constructor.
-    # It also sets the animation coordinate and the resolution of the animation.
     def __init__(self, id, data, animation_coord, resolution, title=None, field_name=None, 
-                 bbox=None, plot_type = PlotType.ThreeD_Animation, parent=None,  cmap=None):
+                 bbox=None, plot_type = PlotType.ThreeD_Animation, parent=None,  cmap=None,
+                 x_range=None, y_range=None):
 
         super().__init__(id, data, title=title, field_name=field_name, bbox=bbox, 
                          plot_type=plot_type, parent=parent, cmap=cmap)
+        logger.info(f"Created AnimationNode: id={id}, shape={data.shape}, coords={self.coord_names}, cmap={cmap}")
 
         self.animation_coord = animation_coord
         self.spatial_res = resolution
         
-        # Coarsen the data if necessary
+        # Coarsen the data if necessary for performance
         coarsen = 1
         if resolution == Resolutions.MEDIUM.value:
             coarsen = 4
@@ -31,65 +38,213 @@ class AnimationNode(FigureNode):
             coarsen = 8
 
         if coarsen > 1:
-            self.data = data.coarsen({self.coord_names[-2]:coarsen, self.coord_names[-1]:coarsen}, 
+            data = data.coarsen({self.coord_names[-2]:coarsen, self.coord_names[-1]:coarsen}, 
                                     boundary='trim').mean()
-        else:
-            self.data = data
 
-        # ----------- Only used if it is an animation (TODO move to another class)
+        # Crop data if ranges provided for performance, but with a buffer
+        self.data = self._crop_data(data, x_range, y_range)
         self.anim_coord_name = animation_coord
+        
+        # Store requested viewport
+        self.x_range = x_range
+        self.y_range = y_range
+
+        # Initialize Player widget for animation controls
+        self.anim_values = self.data[self.anim_coord_name].values
+        self.player = pn.widgets.Player(
+            name=f'Player {self.id}',
+            start=0, end=len(self.anim_values) - 1, value=0,
+            loop_policy='loop', interval=500, # Initial speed
+            height=60, sizing_mode='stretch_width',
+            show_loop_controls=False
+        )
+
+        # --- Caching and Pre-rendering ---
+        self._cache = {}
+        self._is_alive = True
+        
+        # Start background pre-rendering
+        import threading
+        self._pre_render_thread = threading.Thread(target=self._run_pre_render, daemon=True)
+        self._pre_render_thread.start()
+
+    def _run_pre_render(self):
+        """Background thread to pre-populate the cache with rasterized frames."""
+        logger.info(f"Pre-rendering started for {self.id}")
+        for i in range(len(self.anim_values)):
+            if not self._is_alive:
+                break
+            try:
+                if i not in self._cache:
+                    self._get_frame(i)
+            except Exception as e:
+                logger.error(f"Pre-render error at index {i}: {e}")
+        logger.info(f"Pre-rendering completed for {self.id}")
+
+    def __del__(self):
+        # Stop the background thread if the node is destroyed
+        self._is_alive = False
+
+    def _get_frame(self, index):
+        """Internal method to get or compute a specific frame."""
+        if index in self._cache:
+            return self._cache[index]
+
+        val = self.anim_values[index]
+        # Select single frame with nearest method for safety with floats
+        frame_data = self.data.sel({self.anim_coord_name: val}, method='nearest')
+        
+        lat_dim = self.coord_names[-2]
+        lon_dim = self.coord_names[-1]
+        lats = frame_data.coords[lat_dim].values
+        lons = frame_data.coords[lon_dim].values
+        
+        # Format value for title
+        if isinstance(val, (float, np.float32, np.float64)):
+            val_str = f"{val:.2f}"
+        else:
+            val_str = str(val)
+
+        title = f"{self.title or self.id} ({self.cnorm}) - [{index}] {self.anim_coord_name}: {val_str}"
+        
+        # Create gv.Image with explicit coords tuple for stability
+        img = gv.Image((lons, lats, frame_data.values), [lon_dim, lat_dim], crs=ccrs.PlateCarree())
+        
+        # Rasterize inside the callback with dynamic=False
+        # We cap the width at 400px to reduce binary payload size for better animation speed
+        result = rasterize(img, dynamic=False, width=400).opts(
+            cmap=self.cmap,
+            clim=self.clim,
+            colorbar=True,
+            tools=['hover'],
+            responsive=True,
+            aspect='equal',
+            title=title
+        )
+        
+        self._cache[index] = result
+        return result
+
+    def _crop_data(self, data, x_range, y_range):
+        """Crops the data to the specified ranges with a small buffer."""
+        if x_range is None or y_range is None:
+            return data
+            
+        try:
+            # Determine if ranges are in degrees (PlateCarree) or meters (Mercator)
+            min_lon, max_lon = sorted([x_range[0], x_range[1]])
+            min_lat, max_lat = sorted([y_range[0], y_range[1]])
+
+            # If values are large, they are likely Mercator/WebMercator meters.
+            if abs(min_lon) > 500 or abs(min_lat) > 90:
+                logger.info("Ranges in meters (Mercator), transforming to PlateCarree (degrees) for slicing...")
+                src_crs = ccrs.Mercator()
+                dest_crs = ccrs.PlateCarree()
+                x0, y0 = dest_crs.transform_point(x_range[0], y_range[0], src_crs)
+                x1, y1 = dest_crs.transform_point(x_range[1], y_range[1], src_crs)
+                min_lon, max_lon = sorted([x0, x1])
+                min_lat, max_lat = sorted([y0, y1])
+            else:
+                logger.info("Ranges appear to be in degrees. No transformation needed for slicing.")
+
+            # Add 20% buffer to the cropped data for local panning
+            lon_buffer = (max_lon - min_lon) * 0.2
+            lat_buffer = (max_lat - min_lat) * 0.2
+            
+            # Identify lat/lon dims
+            lat_dim = self.coord_names[-2]
+            lon_dim = self.coord_names[-1]
+
+            logger.info(f"Cropping data with buffer: Lon({min_lon-lon_buffer:.2f}, {max_lon+lon_buffer:.2f}), Lat({min_lat-lat_buffer:.2f}, {max_lat+lat_buffer:.2f})")
+            
+            # Handle descending latitudes if necessary (common in netCDF)
+            lats = data[lat_dim].values
+            if len(lats) > 1 and lats[0] > lats[-1]:
+                lat_slice = slice(max_lat + lat_buffer, min_lat - lat_buffer)
+            else:
+                lat_slice = slice(min_lat - lat_buffer, max_lat + lat_buffer)
+                
+            return data.sel({lon_dim: slice(min_lon - lon_buffer, max_lon + lon_buffer), 
+                             lat_dim: lat_slice})
+            
+        except Exception as e:
+            logger.error(f"Failed to crop data: {e}")
+            return data
+
+    def _render_frame(self, **kwargs):
+        """Callback for DynamicMap to render a single frame of the animation."""
+        index = kwargs.get('value', 0)
+        
+        try:
+            return self._get_frame(index)
+        except Exception as e:
+            logger.error(f"Error rendering frame {index}: {e}")
+            return hv.Text(0, 0, f"Error rendering frame: {e}")
 
     # Overloads the create_figure method
     def create_figure(self):
-        colormap = self.cmap
-        data = self.data  # Because it is 3D we assume the spatial coordinates are the last 2
-        times, zaxis, lats, lons = get_all_coords(data)
-        lats = lats.values
-        lons = lons.values
-
-        # n_times = times.values.size
-        anim_coord_name = self.get_anim_dim_name()
-        coord = data.coords[anim_coord_name.lower()]
-        coord_size = coord.size
-        anim_buttons = get_update_buttons([anim_coord_name], [coord_size])
-        sliders = get_def_slider(anim_coord_name, '', coord_size)
-        coords_names = np.array(list(data.coords.keys()))
-        coord_idx = np.where(coords_names == anim_coord_name.lower())[0][0]
-
-        data_anim = select_anim_data(data, coord_idx, self.plot_type)
-
-        frames = [go.Frame(data=go.Heatmap(z=data_anim[c_frame,:,:], colorscale=colormap, showscale=False, x=lons, y=lats),
-                                  name=f'{anim_coord_name}_{c_frame}',
-                                  layout=go.Layout(title=f'{anim_coord_name}: {c_frame}')
-                                  ) for c_frame in range(coord_size)]
-
-        new_graph = dcc.Graph(
-                id={"type": "figure_anim", "index": self.id},
-                figure=go.Figure(
-                        data=[go.Heatmap(z=data, colorscale=colormap, showscale=True, x=lons, y=lats)], 
-                        layout=go.Layout(title=self.id, 
-# zoom, pan, select, lasso, orbit, turntable, zoomInGeo, zoomOutGeo, autoScale2d, resetScale2d, hoverClosestCartesian, hoverClosestGeo, hoverClosestGl2d, hoverClosestPie, toggleHover, resetViews, toggleSpikelines, resetViewMapbox
-                                dragmode="pan",
-                                autosize=True,
-                                xaxis=dict(range=[np.min(lons), np.max(lons)]),
-                                yaxis=dict(range=[np.min(lats), np.max(lats)]),
-                                height=350,
-                                margin=dict(
-                                    l=0,  # left margin
-                                    r=0,  # right margin
-                                    b=0,  # bottom margin
-                                    t=30,  # top margin
-                                    pad=0  # padding
-                                ),
-                                updatemenus= [ anim_buttons],
-                                sliders= [ sliders ],
-                            ),
-                        frames=frames
-                    ),
-            config=get_buttons_config(),
+        logger.info(f"Creating dynamic animation for {self.id}...")
+        
+        # Link player to the DynamicMap
+        stream = hv.streams.Params(self.player, ['value'])
+        self.dmap = hv.DynamicMap(self._render_frame, streams=[stream])
+        
+        # Add tiles 
+        tiles = gv.tile_sources.OSM()
+        
+        # Apply layout options
+        plot = (tiles * self.dmap).opts(
+            active_tools=['wheel_zoom', 'pan'],
+            responsive=True,
+            aspect='equal'
         )
-        return new_graph
 
+        # Set initial viewport if requested
+        if self.x_range and self.y_range:
+            try:
+                min_lon, max_lon = sorted([self.x_range[0], self.x_range[1]])
+                min_lat, max_lat = sorted([y_range[0], y_range[1]])
+
+                # If the values are small (degrees), transform to Web Mercator meters for the plot
+                if abs(min_lon) <= 180 and abs(min_lat) <= 90:
+                    from holoviews.util.transform import lon_lat_to_easting_northing
+                    logger.info(f"Transforming degrees viewport to meters...")
+                    x0, y0 = lon_lat_to_easting_northing(self.x_range[0], self.y_range[0])
+                    x1, y1 = lon_lat_to_easting_northing(self.x_range[1], self.y_range[1])
+                    final_xlim = tuple(sorted([x0, x1]))
+                    final_ylim = tuple(sorted([y0, y1]))
+                else:
+                    final_xlim = (min_lon, max_lon)
+                    final_ylim = (min_lat, max_lat)
+
+                plot = plot.opts(xlim=final_xlim, ylim=final_ylim)
+                logger.info(f"Viewport locked to (meters): {final_xlim}, {final_ylim}")
+            except Exception as e:
+                logger.error(f"Failed to set initial viewport: {e}")
+
+        # Overlay with click marker
+        def _get_marker(x, y):
+            kdims = [self.coord_names[-1], self.coord_names[-2]]
+            
+            # Previous points in yellow
+            prev_points = self.clicked_points[:-1]
+            # Latest point in red to show "it has just clicked"
+            latest_point = self.clicked_points[-1:]
+            
+            p_prev = gv.Points(prev_points, kdims=kdims, crs=ccrs.PlateCarree()).opts(
+                color='yellow', size=12, marker='star', line_color='black', line_width=1
+            )
+            p_latest = gv.Points(latest_point, kdims=kdims, crs=ccrs.PlateCarree()).opts(
+                color='red', size=15, marker='star', line_color='black', line_width=1
+            )
+            return p_prev * p_latest
+            
+        marker_dmap = gv.project(hv.DynamicMap(_get_marker, streams=[self.marker_stream]), projection=ccrs.GOOGLE_MERCATOR)
+        return plot * marker_dmap
+
+    def get_controls(self):
+        """Returns the player widget as navigation controls."""
+        return pn.Row(pn.layout.HSpacer(), self.player, pn.layout.HSpacer(), height=80)
 
     def get_anim_dim_name(self) -> str:
         return self.anim_coord_name
