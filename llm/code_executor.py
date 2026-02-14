@@ -185,7 +185,7 @@ def run_with_retry(
             # Generate code from LLM
             logger.debug(f"=== PROMPT SENT TO LLM ===\n{prompt}\n=== END PROMPT ===")
             code = llm_client.generate(prompt)
-            logger.debug(f"Generated code:\n{code}")
+            logger.debug(f"####### \n Generated code:\n{code} \n #######")
             
             # Execute the code
             result = executor.execute(code, data)
@@ -213,6 +213,7 @@ def run_with_retry(
                     user_request=user_request,
                     previous_code=result.code,
                     error_message=result.error_message,
+                    additional_context=hints,
                 )
                 
         except ConnectionError as e:

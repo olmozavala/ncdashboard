@@ -62,7 +62,7 @@ class FourDNode(ThreeDNode):
             # We use self.third_coord_idx (from parent) for the first dimension (Time)
             current_slice = data[self.third_coord_idx, self.depth_idx,:,:]
 
-        title = f'{self.title} ({self.cnorm}) at {self.coord_names[0].capitalize()} {self.third_coord_idx} and {self.coord_names[1].capitalize()} {self.depth_idx}'
+        title = f'{self.title} at {self.coord_names[0].capitalize()} {self.third_coord_idx} and {self.coord_names[1].capitalize()} {self.depth_idx}'
         
         # Use geoviews Image for geographic plotting
         vdims = [hv.Dimension(self.field_name, label=self.label)]

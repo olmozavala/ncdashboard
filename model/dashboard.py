@@ -267,7 +267,7 @@ class Dashboard:
         
         container = pn.Column(
             sizing_mode='fixed', # Allow FlexBox to wrap it
-            width=600, # Approx half width of 1080p screen, or good size for 2-col
+            width=700, # Approx 7/12 width of 1080p screen
             min_height=480,
             margin=(10, 10),
             styles={'background': getattr(new_node, 'background_color', '#f0f0f0'), 'border-radius': '5px', 'padding': '10px'}
@@ -320,8 +320,8 @@ class Dashboard:
                 })
                 container.param.update(
                     sizing_mode='fixed',
-                    width=600,
-                    max_width=600,
+                    width=700,
+                    max_width=700,
                     height=None,
                     min_height=480,
                     styles=new_styles
@@ -349,13 +349,23 @@ class Dashboard:
 
         # Determine initial clim
         try:
-            # We use mean +/- 1 std for a more robust initial range
-            mean = float(new_node.data.mean())
-            std = float(new_node.data.std())
-            dmin = mean - std
-            dmax = mean + std
-        except:
-            dmin, dmax = 0, 1
+            # Using percentiles (2%, 98%) is much more robust than mean/std.
+            # It covers 96% of the data and naturally ignores outliers that
+            # cause oversaturation or "washed out" colors.
+            q = new_node.data.quantile([0.02, 0.98]).values
+            dmin, dmax = float(q[0]), float(q[1])
+            
+            # If dmin and dmax are the same, broaden the range slightly
+            if dmin == dmax:
+                dmin -= 0.1 * abs(dmin) if dmin != 0 else 0.1
+                dmax += 0.1 * abs(dmax) if dmax != 0 else 0.1
+        except Exception as e:
+            logger.warning(f"Failed to calculate robust clim: {e}. Falling back to simple range.")
+            try:
+                dmin = float(new_node.data.min())
+                dmax = float(new_node.data.max())
+            except:
+                dmin, dmax = 0, 1
             
         initial_clim = getattr(new_node, 'clim', (dmin, dmax))
         if initial_clim == (None, None):

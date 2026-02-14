@@ -143,7 +143,8 @@ class PromptBuilder:
         self, 
         user_request: str, 
         previous_code: str, 
-        error_message: str
+        error_message: str,
+        additional_context: str = ""
     ) -> str:
         """
         Build a prompt for error correction after failed execution.
@@ -152,15 +153,28 @@ class PromptBuilder:
             user_request: Original user request
             previous_code: The code that failed
             error_message: Error message from execution
+            additional_context: Optional extra context
         
         Returns:
             Formatted error correction prompt
         """
         var_names, vars_info_text = self._get_variables_info()
+        coords_info = self._get_coordinates_info()
+
+        # Determine data type and provide appropriate context
+        if isinstance(self.data, xr.Dataset):
+            data_type_context = "You have an xarray Dataset named 'data' with multiple variables."
+            data_access_hint = "\n6. Access variables using data['variable_name']"
+        else:
+            # DataArray
+            data_type_context = "You have an xarray DataArray named 'data'."
+            data_access_hint = "\n6. Work directly with 'data' - it's already a single variable (DataArray)"
         
         prompt = ERROR_CORRECTION_PROMPT.format(
             var_names=self._format_list(var_names),
             vars_info=vars_info_text,
+            coords_info=coords_info,
+            additional_context=additional_context,
             user_request=user_request,
             previous_code=previous_code,
             error_message=error_message,

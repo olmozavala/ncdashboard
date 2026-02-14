@@ -47,7 +47,7 @@ class ThreeDNode(FigureNode):
         lats = data.coords[self.coord_names[-2]].values
         lons = data.coords[self.coord_names[-1]].values
 
-        title = f'{self.title} ({self.cnorm}) at {self.coord_names[0].capitalize()} {self.third_coord_idx}'
+        title = f'{self.title} at {self.coord_names[0].capitalize()} {self.third_coord_idx}'
 
         # Use geoviews Image for geographic plotting
         vdims = [hv.Dimension(self.field_name, label=self.label)]

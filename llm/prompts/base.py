@@ -9,10 +9,11 @@ CRITICAL_RULES = """
 === CRITICAL RULES ===
 1. Store result in variable 'output' (MUST be xarray DataArray)
 2. Use ONLY 'data', 'xr', 'np' - NO imports allowed
-3. Use .diff(dim) to form the numerator (finite difference). A derivative MUST be da.diff(dim) / coord.diff(dim) (or /dx, /dy for lon/lat).
-4. Use .sel(Coord=value, method='nearest') for coordinate selection - values rarely match exactly
-5. Handle NaN with skipna=True
-6. Access variables using data['variable_name']
+3. Handle NaN with skipna=True
+4. Access variables using data['variable_name']
+5. For vertical transects, by default use the depth/level coordinate and NOT the time dimension, unless explicitly specified.
+6. IMPORTANT: In .sel(), do NOT mix slice objects (e.g. slice(a,b)) with method='nearest'. Split them into two separate .sel() calls if needed.
+7. DO NOT use reduction operations (.mean(), .sum(), .std(), etc.) unless the user explicitly asks for it like "mean", "average", "total", or "summary". Preserve the spatial/temporal dimensions requested.
 """
 
 OUTPUT_FORMAT = """
@@ -43,7 +44,13 @@ SYSTEM_PROMPT = """You are an expert Python software engineer.
 {output_format}
 """
 
-ERROR_CORRECTION_PROMPT = """You are an expert Python software engineer. Your previous code failed to execute.
+ERROR_CORRECTION_PROMPT = """You are an expert Python software engineer. 
+Your previous code failed to execute. You MUST analyze the error message and modify the code to fix it. 
+
+=== ANALYSIS TASK ===
+1. Carefully read the ERROR MESSAGE below.
+2. Identify why the PREVIOUS CODE triggered this specific error.
+3. Rewrite the code to accomplish the USER REQUEST while satisfying all CRITICAL RULES and avoiding the previous error.
 
 {data_type_context}
 
@@ -59,15 +66,22 @@ ERROR_CORRECTION_PROMPT = """You are an expert Python software engineer. Your pr
 
 User request: {user_request}
 
-PREVIOUS CODE THAT FAILED:
+{critical_rules}
+{data_access_hint}
+
+{output_format}
+
+=== PREVIOUS CODE THAT FAILED ===
 ```python
 {previous_code}
 ```
 
-ERROR MESSAGE:
+=== ERROR MESSAGE ===
 {error_message}
 
-{output_format}
+=== REQUIRED ACTION ===
+Provide the corrected Python code that fixes the error above. 
+Do not repeat the same mistake.
 Fixed code:"""
 
 
