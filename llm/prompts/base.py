@@ -100,3 +100,15 @@ def get_hint_for_request(user_request: str) -> str:
             hints_to_apply.append(hint)
     
     return "\n".join(hints_to_apply)
+
+
+SUMMARY_PROMPT = """You are a helpful data science assistant.
+Provide a very brief (1-2 sentences) summary of what this Python code did to the xarray data.
+Focus on the transformation performed and the resulting variable.
+
+SUCCESSFUL CODE:
+```python
+{code}
+```
+
+SUMMARY:"""

@@ -108,11 +108,13 @@ class AnimationNode(FigureNode):
         title = f"{self.title or self.id} ({self.cnorm}) - [{index}] {self.anim_coord_name}: {val_str}"
         
         # Create gv.Image with explicit coords tuple for stability
-        img = gv.Image((lons, lats, frame_data.values), [lon_dim, lat_dim], crs=ccrs.PlateCarree())
+        vdims = [hv.Dimension(self.field_name, label=self.label)]
+        img = gv.Image((lons, lats, frame_data.values), [lon_dim, lat_dim], 
+                       vdims=vdims, crs=ccrs.PlateCarree())
         
         # Rasterize inside the callback with dynamic=False
-        # We cap the width at 400px to reduce binary payload size for better animation speed
-        result = rasterize(img, dynamic=False, width=400).opts(
+        # Increased width and pixel_ratio for better resolution during save
+        result = rasterize(img, dynamic=False, width=800, pixel_ratio=2).opts(
             cmap=self.cmap,
             clim=self.clim,
             colorbar=True,

@@ -1,0 +1,23 @@
+# LLM Configuration for NcDashboard
+# This file specifies the default LLM provider and the environment variables
+# used to store API keys for different providers.
+
+# Options are openai, gemini, anthropic, ollama
+default_provider: "openai"
+
+providers:
+  openai:
+    api_key_env: "OPENAI_API_KEY"
+    model: "gpt-4o-mini"
+
+  gemini:
+    api_key_env: "GEMINI_API_KEY"
+    model: "gemini-2.0-flash"
+
+  anthropic:
+    api_key_env: "ANTHROPIC_API_KEY"
+    model: "claude-3-5-sonnet-20241022"
+
+  ollama:
+    model: "qwen2.5-coder:3b"
+    base_url: "http://localhost:11434"

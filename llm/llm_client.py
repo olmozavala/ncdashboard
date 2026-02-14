@@ -8,11 +8,12 @@ Supports:
 """
 
 import os
+import yaml
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from netrc import netrc
-from typing import Optional
+from typing import Optional, Dict, Any
 import requests
 from loguru import logger
 
@@ -22,6 +23,28 @@ class LLMProviders(Enum):
     OLLAMA = "ollama"
     OPENAI = "openai"
     GEMINI = "gemini"
+    ANTHROPIC = "anthropic"
+
+
+def load_llm_config() -> Dict[str, Any]:
+    """Load LLM configuration from llm_config.yml."""
+    # Try current directory and parent directory (project root)
+    paths_to_try = [
+        os.path.join(os.getcwd(), "llm_config.yml"),
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), "llm_config.yml"),
+    ]
+    
+    for path in paths_to_try:
+        if os.path.exists(path):
+            try:
+                with open(path, 'r') as f:
+                    config = yaml.safe_load(f)
+                    logger.debug(f"Loaded LLM configuration from {path}")
+                    return config
+            except Exception as e:
+                logger.error(f"Failed to load LLM config from {path}: {e}")
+    
+    return {}
 
 
 @dataclass
@@ -59,8 +82,11 @@ class OllamaClient(BaseLLMClient):
     
     def __init__(self, config: LLMConfig):
         super().__init__(config)
-        self.base_url = config.base_url or self.DEFAULT_URL
-        self.model = config.model or self.DEFAULT_MODEL
+        llm_config = load_llm_config()
+        ollama_cfg = llm_config.get("providers", {}).get("ollama", {})
+        
+        self.base_url = config.base_url or ollama_cfg.get("base_url") or self.DEFAULT_URL
+        self.model = config.model or ollama_cfg.get("model") or self.DEFAULT_MODEL
     
     def generate(self, prompt: str) -> str:
         """Generate code using Ollama API."""
@@ -136,31 +162,36 @@ class OpenAIClient(BaseLLMClient):
     
     def __init__(self, config: LLMConfig):
         super().__init__(config)
-        self.model = config.model or self.DEFAULT_MODEL
+        llm_config = load_llm_config()
+        oa_cfg = llm_config.get("providers", {}).get("openai", {})
+        
+        self.model = config.model or oa_cfg.get("model") or self.DEFAULT_MODEL
+        self.api_key_env = oa_cfg.get("api_key_env", "OPENAI_API_KEY")
         self.api_key = self._get_api_key(config)
         
         if not self.api_key:
-            raise ValueError("OpenAI API key not found. Add 'machine OPENAI password YOUR_KEY' to .netrc or set OPENAI_API_KEY env var")
+            raise ValueError(f"OpenAI API key not found. Set {self.api_key_env} env var or check .netrc")
     
     def _get_api_key(self, config: LLMConfig) -> Optional[str]:
         """Get API key from config, .netrc, or environment variable (in that order)."""
         if config.api_key:
             return config.api_key
         
-        # Try netrc first
+        # Try netrc with both "OPENAI" and the env var name
         try:
             netrc_obj = netrc()
-            auth = netrc_obj.authenticators("OPENAI")
-            if auth:
-                logger.debug("Using OpenAI API key from .netrc")
-                return auth[2]  # password field
-        except (FileNotFoundError, TypeError):
+            for machine in ["OPENAI", self.api_key_env]:
+                auth = netrc_obj.authenticators(machine)
+                if auth:
+                    logger.debug(f"Using OpenAI API key from .netrc (machine: {machine})")
+                    return auth[2]  # password field
+        except (FileNotFoundError, TypeError, OSError):
             pass
         
         # Fall back to environment variable
-        api_key = os.environ.get("OPENAI_API_KEY")
+        api_key = os.environ.get(self.api_key_env)
         if api_key:
-            logger.debug("Using OpenAI API key from OPENAI_API_KEY env var")
+            logger.debug(f"Using OpenAI API key from {self.api_key_env} env var")
             return api_key
         
         return None
@@ -212,31 +243,36 @@ class GeminiClient(BaseLLMClient):
     
     def __init__(self, config: LLMConfig):
         super().__init__(config)
-        self.model = config.model or self.DEFAULT_MODEL
+        llm_config = load_llm_config()
+        gem_cfg = llm_config.get("providers", {}).get("gemini", {})
+        
+        self.model = config.model or gem_cfg.get("model") or self.DEFAULT_MODEL
+        self.api_key_env = gem_cfg.get("api_key_env", "GEMINI_API_KEY")
         self.api_key = self._get_api_key(config)
         
         if not self.api_key:
-            raise ValueError("Gemini API key not found. Add 'machine GEMINI password YOUR_KEY' to .netrc or set GEMINI_API_KEY env var")
+            raise ValueError(f"Gemini API key not found. Set {self.api_key_env} env var or check .netrc")
     
     def _get_api_key(self, config: LLMConfig) -> Optional[str]:
         """Get API key from config, .netrc, or environment variable (in that order)."""
         if config.api_key:
             return config.api_key
         
-        # Try netrc first
+        # Try netrc with both "GEMINI" and the env var name
         try:
             netrc_obj = netrc()
-            auth = netrc_obj.authenticators("GEMINI")
-            if auth:
-                logger.debug("Using Gemini API key from .netrc")
-                return auth[2]  # password field
-        except (FileNotFoundError, TypeError):
+            for machine in ["GEMINI", self.api_key_env]:
+                auth = netrc_obj.authenticators(machine)
+                if auth:
+                    logger.debug(f"Using Gemini API key from .netrc (machine: {machine})")
+                    return auth[2]  # password field
+        except (FileNotFoundError, TypeError, OSError):
             pass
         
         # Fall back to environment variable
-        api_key = os.environ.get("GEMINI_API_KEY")
+        api_key = os.environ.get(self.api_key_env)
         if api_key:
-            logger.debug("Using Gemini API key from GEMINI_API_KEY env var")
+            logger.debug(f"Using Gemini API key from {self.api_key_env} env var")
             return api_key
         
         return None
@@ -279,8 +315,94 @@ class GeminiClient(BaseLLMClient):
         return code.strip()
 
 
+class AnthropicClient(BaseLLMClient):
+    """Client for Anthropic (Claude) API."""
+    
+    DEFAULT_MODEL = "claude-3-5-sonnet-20241022"
+    
+    def __init__(self, config: LLMConfig):
+        super().__init__(config)
+        llm_config = load_llm_config()
+        ant_cfg = llm_config.get("providers", {}).get("anthropic", {})
+        
+        self.model = config.model or ant_cfg.get("model") or self.DEFAULT_MODEL
+        self.api_key_env = ant_cfg.get("api_key_env", "ANTHROPIC_API_KEY")
+        self.api_key = self._get_api_key(config)
+        
+        if not self.api_key:
+            raise ValueError(f"Anthropic API key not found. Set {self.api_key_env} env var or check .netrc")
+    
+    def _get_api_key(self, config: LLMConfig) -> Optional[str]:
+        """Get API key from config, .netrc, or environment variable (in that order)."""
+        if config.api_key:
+            return config.api_key
+        
+        # Try netrc with both "ANTHROPIC" and the env var name
+        try:
+            netrc_obj = netrc()
+            for machine in ["ANTHROPIC", self.api_key_env]:
+                auth = netrc_obj.authenticators(machine)
+                if auth:
+                    logger.debug(f"Using Anthropic API key from .netrc (machine: {machine})")
+                    return auth[2]  # password field
+        except (FileNotFoundError, TypeError, OSError):
+            pass
+        
+        # Fall back to environment variable
+        api_key = os.environ.get(self.api_key_env)
+        if api_key:
+            logger.debug(f"Using Anthropic API key from {self.api_key_env} env var")
+            return api_key
+        
+        return None
+    
+    def generate(self, prompt: str) -> str:
+        """Generate code using Anthropic API."""
+        try:
+            from anthropic import Anthropic
+        except ImportError:
+            raise ImportError("anthropic package not installed. Run: pip install anthropic")
+        
+        client = Anthropic(api_key=self.api_key)
+        
+        try:
+            message = client.messages.create(
+                model=self.model,
+                max_tokens=4096,
+                temperature=self.config.temperature,
+                system="You are a helpful Python code assistant. Output only the code.",
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            # Handle list of ContentBlock objects
+            response = ""
+            for block in message.content:
+                if hasattr(block, 'text'):
+                    response += block.text
+            return self._extract_code(response)
+        except Exception as e:
+            logger.error(f"Anthropic request failed: {e}")
+            raise ConnectionError(f"Failed to call Anthropic API: {e}")
+    
+    def is_available(self) -> bool:
+        """Check if Anthropic API is accessible."""
+        return self.api_key is not None
+    
+    def _extract_code(self, response: str) -> str:
+        """Extract Python code from response, removing markdown fences."""
+        code = response.strip()
+        if code.startswith("```python"):
+            code = code[9:]
+        elif code.startswith("```"):
+            code = code[3:]
+        if code.endswith("```"):
+            code = code[:-3]
+        return code.strip()
+
+
 def get_llm_client(
-    provider: str | LLMProviders,
+    provider: Optional[str | LLMProviders] = None,
     model: Optional[str] = None,
     api_key: Optional[str] = None,
     base_url: Optional[str] = None,
@@ -297,6 +419,12 @@ def get_llm_client(
     Returns:
         Configured LLM client instance
     """
+    llm_config = load_llm_config()
+    
+    if provider is None:
+        provider_str = llm_config.get("default_provider", "ollama")
+        provider = LLMProviders(provider_str.lower())
+    
     if isinstance(provider, str):
         provider = LLMProviders(provider.lower())
     
@@ -311,6 +439,7 @@ def get_llm_client(
         LLMProviders.OLLAMA: OllamaClient,
         LLMProviders.OPENAI: OpenAIClient,
         LLMProviders.GEMINI: GeminiClient,
+        LLMProviders.ANTHROPIC: AnthropicClient,
     }
     
     client_class = client_map.get(provider)

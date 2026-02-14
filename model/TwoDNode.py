@@ -29,7 +29,9 @@ class TwoDNode(FigureNode):
         lons = self.data.coords[self.coord_names[-1]].values
 
         # Use geoviews Image for geographic plotting
-        self.img = gv.Image((lons, lats, self.data), [self.coord_names[-1], self.coord_names[-2]], crs=ccrs.PlateCarree())
+        vdims = [hv.Dimension(self.field_name, label=self.label)]
+        self.img = gv.Image((lons, lats, self.data), [self.coord_names[-1], self.coord_names[-2]], 
+                            vdims=vdims, crs=ccrs.PlateCarree())
 
         # We wrap in a DynamicMap to allow reactive updates to cmap 
         # without replacing the entire figure object in the UI.
@@ -42,7 +44,7 @@ class TwoDNode(FigureNode):
 
         # Project to Web Mercator BEFORE rasterizing for best performance/quality
         projected = gv.project(self.dmap, projection=ccrs.GOOGLE_MERCATOR)
-        rasterized = rasterize(projected).opts(
+        rasterized = rasterize(projected, pixel_ratio=2).opts(
             tools=['hover', 'save', 'copy'],
             colorbar=True,
             responsive=True,

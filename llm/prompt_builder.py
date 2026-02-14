@@ -7,7 +7,7 @@ to help LLMs generate accurate Python code.
 
 import xarray as xr
 from typing import Optional
-from .prompts.base import SYSTEM_PROMPT, ERROR_CORRECTION_PROMPT, CRITICAL_RULES, OUTPUT_FORMAT
+from .prompts.base import SYSTEM_PROMPT, ERROR_CORRECTION_PROMPT, SUMMARY_PROMPT, CRITICAL_RULES, OUTPUT_FORMAT
 
 
 class PromptBuilder:
@@ -171,3 +171,15 @@ class PromptBuilder:
         )
         
         return prompt
+
+    def build_summary_prompt(self, code: str) -> str:
+        """
+        Build a prompt to summarize what the successful code did.
+        
+        Args:
+            code: The successful Python code
+            
+        Returns:
+            Formatted summary prompt
+        """
+        return SUMMARY_PROMPT.format(code=code)

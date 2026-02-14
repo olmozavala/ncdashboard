@@ -275,8 +275,24 @@ class Dashboard:
         
         # Maximize/Restore Button
         # Toggle between fixed size and full screen (stretch both)
-        # Using ⛶ (Square Four Corners) for maximize
-        max_btn = pn.widgets.Button(name="⛶", button_type="light", width=40, height=30, align='center', margin=(0, 5, 0, 0))
+        # MacOS Green color: #28C840
+        max_btn = pn.widgets.Button(
+            name="⛶", 
+            width=30, height=30, 
+            align='center', 
+            margin=(0, 5, 0, 0),
+            stylesheets=[""":host .bk-btn { 
+                background-color: #28C840 !important; 
+                color: white !important; 
+                border-radius: 50%; 
+                font-weight: bold; 
+                border: none;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+            }
+            :host .bk-btn:hover {
+                background-color: #24b239 !important;
+            }"""]
+        )
         
         def toggle_size(event):
             if container.sizing_mode == 'fixed':
@@ -349,8 +365,9 @@ class Dashboard:
             initial_clim = (round(initial_clim[0], 1), round(initial_clim[1], 1))
 
         # Clim Inputs
-        min_input = pn.widgets.FloatInput(name='', value=initial_clim[0], width=85, height=30, align='center', margin=(0, 2), format='0.0')
-        max_input = pn.widgets.FloatInput(name='', value=initial_clim[1], width=85, height=30, align='center', margin=(0, 2), format='0.0')
+        input_style = ":host input { text-align: center; }"
+        min_input = pn.widgets.FloatInput(name='', value=initial_clim[0], width=85, height=30, align='center', margin=(0, 2), format='0.0', stylesheets=[input_style])
+        max_input = pn.widgets.FloatInput(name='', value=initial_clim[1], width=85, height=30, align='center', margin=(0, 2), format='0.0', stylesheets=[input_style])
 
         def update_clim(event):
             new_node.clim = (min_input.value, max_input.value)
@@ -471,11 +488,27 @@ class Dashboard:
              gallery_container.append(group_flex)
 
         # Header with Controls
-        close_btn = pn.widgets.Button(name="x", button_type="danger", width=30, height=30, align='center')
+        # Ubuntu/MacOS Red color: #FF5F56
+        close_btn = pn.widgets.Button(
+            name="✕", 
+            width=30, height=30, 
+            align='center',
+            stylesheets=[""":host .bk-btn { 
+                background-color: #FF5F56 !important; 
+                color: white !important; 
+                border-radius: 50%; 
+                font-weight: bold; 
+                border: none;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+            }
+            :host .bk-btn:hover {
+                background-color: #e54b44 !important;
+            }"""]
+        )
         header_row = pn.Row(
-            pn.pane.Markdown("**Cmap:**", align='center', margin=(0, 0, 0, 5)),
+            pn.pane.HTML("<b>Cmap:</b>", align='center', margin=(0, 0, 0, 5)),
             select_toggle_btn,
-            pn.pane.Markdown("**Rng:**", align='center', margin=(0, 0, 0, 10)),
+            pn.pane.HTML("<b>Rng:</b>", align='center', margin=(0, 0, 0, 10)),
             min_input,
             max_input,
             pn.layout.HSpacer(),

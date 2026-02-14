@@ -23,6 +23,7 @@ class ExecutionResult:
     output: Optional[xr.DataArray]
     error_message: str
     code: str  # The code that was executed
+    summary: str = ""  # Brief summary of what was performed
 
 
 class CodeExecutor:
@@ -122,6 +123,7 @@ class CodeExecutor:
                 output=output,
                 error_message="",
                 code=code,
+                summary=""
             )
             
         except SyntaxError as e:
@@ -190,6 +192,16 @@ def run_with_retry(
             
             if result.success:
                 logger.info(f"Success on attempt {attempt}")
+                
+                # Generate summary of successful execution
+                try:
+                    summary_prompt = prompt_builder.build_summary_prompt(code)
+                    result.summary = llm_client.generate(summary_prompt)
+                    logger.info(f"Generated summary: {result.summary}")
+                except Exception as e:
+                    logger.warning(f"Failed to generate summary: {e}")
+                    result.summary = "Analysis executed successfully."
+                    
                 return result
             
             # Failed - prepare error correction prompt for next attempt

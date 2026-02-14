@@ -67,6 +67,8 @@ class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
         except:
             pass
 
+        self.label = f"{self.long_name} ({self.units})"
+
         if title is None:
             self.title = self.long_name
         else:

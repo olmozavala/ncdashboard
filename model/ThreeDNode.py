@@ -50,7 +50,9 @@ class ThreeDNode(FigureNode):
         title = f'{self.title} ({self.cnorm}) at {self.coord_names[0].capitalize()} {self.third_coord_idx}'
 
         # Use geoviews Image for geographic plotting
-        img = gv.Image((lons, lats, data.values), [self.coord_names[-1], self.coord_names[-2]], crs=ccrs.PlateCarree())
+        vdims = [hv.Dimension(self.field_name, label=self.label)]
+        img = gv.Image((lons, lats, data.values), [self.coord_names[-1], self.coord_names[-2]], 
+                       vdims=vdims, crs=ccrs.PlateCarree())
         return img.opts(title=title, cmap=colormap, cnorm=self.cnorm, clim=self.clim)
 
     def create_figure(self):
@@ -64,7 +66,7 @@ class ThreeDNode(FigureNode):
         
         # Apply rasterization to the DynamicMap
         # We use .apply.opts to link cmap and clim to the parameter reactively
-        rasterized = rasterize(self.dmap, width=800).apply.opts(
+        rasterized = rasterize(self.dmap, width=800, pixel_ratio=2).apply.opts(
             cmap=self.param.cmap,
             clim=self.param.clim,
             tools=['hover', 'save', 'copy'],

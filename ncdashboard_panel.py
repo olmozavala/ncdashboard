@@ -30,7 +30,10 @@ import geoviews as gv
 pn.extension(notifications=True)
 hv.extension('bokeh')
 gv.extension('bokeh')
-# Suppress "not evenly sampled" warning for Image with irregular lat/lon
+# Remove logos from plots
+hv.plotting.bokeh.ElementPlot.toolbar_logo = None
+hv.config.logo = False
+# Suppress "not evenly sampled" warning
 hv.config.image_rtol = 0.1
 
 class NcDashboard:
@@ -232,11 +235,19 @@ class NcDashboard:
         # Get available source nodes (root + open figures)
         source_options = self._get_source_node_options()
         
+        # Get LLM config for defaults
+        from llm.llm_client import load_llm_config
+        llm_config = load_llm_config()
+        default_provider = llm_config.get("default_provider", "ollama")
+        available_providers = list(llm_config.get("providers", {}).keys())
+        if not available_providers:
+            available_providers = ["ollama", "openai", "gemini", "anthropic"]
+        
         # LLM Provider selector
         provider_select = pn.widgets.Select(
             name="LLM Provider",
-            options=["ollama", "openai", "gemini"],
-            value="ollama",
+            options=available_providers,
+            value=default_provider,
             width=180
         )
         
@@ -398,13 +409,65 @@ class NcDashboard:
             plot_type = PlotType.FourD
         
         # Create figure
-        self.ncdash.create_figure_from_dataarray(
+        new_fig_node = self.ncdash.create_figure_from_dataarray(
             output_data,
             parent_node=parent_node,
             title=f"LLM: {request[:50]}...",
             layout_container=self.main_area
         )
         
+        # Show summary in a nice notification or small pane
+        if result.summary:
+            summary_md = pn.pane.Markdown(f"""
+            ### 🤖 Analysis Summary
+            {result.summary}
+            
+            *Code generated for: "{request}"*
+            """, margin=(0, 10, 0, 0), sizing_mode='stretch_width')
+            
+            close_summary_btn = pn.widgets.Button(
+                name="✕", 
+                width=30, height=30, 
+                align='start',
+                stylesheets=[""":host .bk-btn { 
+                    background-color: #cbd5e0 !important; 
+                    color: #4a5568 !important; 
+                    border-radius: 50%; 
+                    font-weight: bold; 
+                    border: none;
+                }
+                :host .bk-btn:hover {
+                    background-color: #a0aec0 !important;
+                }"""]
+            )
+            
+            summary_container = pn.Row(
+                summary_md,
+                close_summary_btn,
+                styles={
+                    'background': '#e8f5e9', 
+                    'padding': '15px', 
+                    'border-left': '5px solid #4caf50',
+                    'margin': '10px',
+                    'border-radius': '4px'
+                },
+                sizing_mode='stretch_width'
+            )
+            
+            def on_close_summary(event):
+                try:
+                    self.main_area.remove(summary_container)
+                except ValueError:
+                    pass
+            
+            close_summary_btn.on_click(on_close_summary)
+            
+            # Add to main area at the top
+            self.main_area.insert(0, summary_container)
+            
+            # Also show as notification
+            pn.state.notifications.success("Analysis complete!", duration=3000)
+            
         logger.info("Custom analysis figure created successfully")
 
 

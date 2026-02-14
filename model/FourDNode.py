@@ -65,7 +65,9 @@ class FourDNode(ThreeDNode):
         title = f'{self.title} ({self.cnorm}) at {self.coord_names[0].capitalize()} {self.third_coord_idx} and {self.coord_names[1].capitalize()} {self.depth_idx}'
         
         # Use geoviews Image for geographic plotting
-        img = gv.Image((lons, lats, current_slice.values), [self.coord_names[-1], self.coord_names[-2]], crs=ccrs.PlateCarree())
+        vdims = [hv.Dimension(self.field_name, label=self.label)]
+        img = gv.Image((lons, lats, current_slice.values), [self.coord_names[-1], self.coord_names[-2]], 
+                       vdims=vdims, crs=ccrs.PlateCarree())
         return img.opts(title=title, cmap=colormap, cnorm=self.cnorm, clim=self.clim)
 
     def create_figure(self):
@@ -78,7 +80,7 @@ class FourDNode(ThreeDNode):
                                   streams=[self.update_stream, self.range_stream, self.param_stream])
         
         # Apply rasterization to the DynamicMap
-        rasterized = rasterize(self.dmap, width=800).apply.opts(
+        rasterized = rasterize(self.dmap, width=800, pixel_ratio=2).apply.opts(
             cmap=self.param.cmap,
             clim=self.param.clim,
             tools=['hover', 'save', 'copy'],
