@@ -27,11 +27,11 @@ class LLMProviders(Enum):
 
 
 def load_llm_config() -> Dict[str, Any]:
-    """Load LLM configuration from llm_config.yml."""
+    """Load LLM configuration from ncdashboard_config.yml."""
     # Try current directory and parent directory (project root)
     paths_to_try = [
-        os.path.join(os.getcwd(), "llm_config.yml"),
-        os.path.join(os.path.dirname(os.path.dirname(__file__)), "llm_config.yml"),
+        os.path.join(os.getcwd(), "ncdashboard_config.yml"),
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), "ncdashboard_config.yml"),
     ]
     
     for path in paths_to_try:
@@ -39,10 +39,11 @@ def load_llm_config() -> Dict[str, Any]:
             try:
                 with open(path, 'r') as f:
                     config = yaml.safe_load(f)
-                    logger.debug(f"Loaded LLM configuration from {path}")
-                    return config
+                    logger.debug(f"Loaded configuration from {path}")
+                    # Return only the 'llm' section for backward compatibility in this module
+                    return config.get("llm", {})
             except Exception as e:
-                logger.error(f"Failed to load LLM config from {path}: {e}")
+                logger.error(f"Failed to load config from {path}: {e}")
     
     return {}
 

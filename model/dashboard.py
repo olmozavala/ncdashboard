@@ -350,11 +350,26 @@ class Dashboard:
         # Determine initial clim
         try:
             # Using percentiles (2%, 98%) is much more robust than mean/std.
-            # It covers 96% of the data and naturally ignores outliers that
-            # cause oversaturation or "washed out" colors.
-            q = new_node.data.quantile([0.02, 0.98]).values
-            dmin, dmax = float(q[0]), float(q[1])
+            # We compute() first to avoid dask rechunking errors on core dimensions.
+            # If the data is massive, we take a coarse sample to keep it fast.
+            sample_data = new_node.data
+            if hasattr(sample_data, 'size') and sample_data.size > 1000000: # > 1M points
+                # Simple stride-based sampling for speed
+                sample_data = sample_data.thin(5) 
             
+            # Compute to local memory to avoid 'consists of multiple chunks' error
+            computed_data = sample_data.compute()
+            
+            # Check if dmin/dmax are already computed or if it's a single point
+            if computed_data.size > 1:
+                q = computed_data.quantile([0.02, 0.98]).values
+                dmin, dmax = float(q[0]), float(q[1])
+            elif computed_data.size == 1:
+                 val = float(computed_data.values.item())
+                 dmin, dmax = val - 0.1, val + 0.1
+            else:
+                 dmin, dmax = 0, 1
+
             # If dmin and dmax are the same, broaden the range slightly
             if dmin == dmax:
                 dmin -= 0.1 * abs(dmin) if dmin != 0 else 0.1
@@ -362,13 +377,18 @@ class Dashboard:
         except Exception as e:
             logger.warning(f"Failed to calculate robust clim: {e}. Falling back to simple range.")
             try:
-                dmin = float(new_node.data.min())
-                dmax = float(new_node.data.max())
+                # Still use computed data if possible
+                if 'computed_data' in locals():
+                    dmin = float(computed_data.min())
+                    dmax = float(computed_data.max())
+                else:
+                    dmin = float(new_node.data.min().compute())
+                    dmax = float(new_node.data.max().compute())
             except:
                 dmin, dmax = 0, 1
             
         initial_clim = getattr(new_node, 'clim', (dmin, dmax))
-        if initial_clim == (None, None):
+        if initial_clim == (None, None) or initial_clim == (0, 0):
             initial_clim = (round(dmin, 1), round(dmax, 1))
             new_node.clim = initial_clim
         else:

@@ -1,8 +1,8 @@
 """NcDashboard Panel Options
 
 Usage:
-  ncdashboard_panel.py  <path> [--regex <regex>] [--state <state_file>] [--port=<port>] [--host=<host>]
-  ncdashboard_panel.py  --state <state_file> [--port=<port>] [--host=<host>]
+  ncdashboard_panel.py  <path> [--regex <regex>] [--state <state_file>] [--port=<port>]
+  ncdashboard_panel.py  --state <state_file> [--port=<port>]
   ncdashboard_panel.py (-h | --help)
   ncdashboard_panel.py --version
 
@@ -12,16 +12,29 @@ Options:
   <path>        Directory or path for NetCDF files.
   --regex <regex>  File pattern (e.g. "*.nc") when path is a directory.
   --state <state_file>  Load dashboard from saved state file (path/regex from file if path not given).
-  --port=<port>  Port [default: 8050].
-  --host=<host>  Host [default: 127.0.0.1].
+  --port=<port>  Port (overrides config).
 """
 import io
 import json
+import yaml
+import os
+import glob
 import panel as pn
 from loguru import logger
 from docopt import docopt
 from model.dashboard import Dashboard
 from model.state import load_state_file
+
+def load_ncdashboard_config() -> dict:
+    """Load configuration from ncdashboard_config.yml."""
+    config_path = os.path.join(os.path.dirname(__file__), "ncdashboard_config.yml")
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r') as f:
+                return yaml.safe_load(f)
+        except Exception as e:
+            logger.error(f"Failed to load config from {config_path}: {e}")
+    return {}
 
 import holoviews as hv
 import geoviews as gv
@@ -472,10 +485,15 @@ class NcDashboard:
 
 
 if __name__ == "__main__":
-    args = docopt(__doc__, version='NcDashboard Panel 0.0.1')
+    args = docopt(__doc__, version='NcDashboard Panel 0.0.2')
+    config = load_ncdashboard_config()
+    server_cfg = config.get('server', {})
+
     state_file = args.get('--state')
-    port = int(args['--port']) if args.get('--port') else 8050
-    host = args.get('--host') or '127.0.0.1'
+    
+    # Port priority: CLI > Config > Static Default
+    port = int(args['--port']) if args.get('--port') else int(server_cfg.get('port', 8050))
+    host = server_cfg.get('host', '127.0.0.1')
 
     if state_file:
         state = load_state_file(state_file)
@@ -495,17 +513,41 @@ if __name__ == "__main__":
         initial_state = None
 
     # Pre-check if files exist to warn the user early
-    import glob
-    import os
     search_pattern = os.path.join(str(path), regex) if (path and regex) else path
     if search_pattern and not glob.glob(search_pattern):
         logger.warning(f"No files found matching: {search_pattern}")
-        logger.warning("The dashboard will show an error message when accessed in the browser.")
 
     def make_app():
         return NcDashboard(path, regex or '', initial_state=initial_state).template
 
+    # Websocket origin setup
     ws_origin = [f"{host}:{port}", f"localhost:{port}", f"127.0.0.1:{port}"]
-    logger.info(f"Starting NcDashboard server on http://{host}:{port}")
-    pn.serve(make_app, port=port, address=host, show=False,
-             websocket_origin=ws_origin, autoreload=True)
+    ws_origin.extend(server_cfg.get('allowed_origins', []))
+    
+    if server_cfg.get('allow_all_origins', False):
+        if '*' not in ws_origin:
+            ws_origin.append('*')
+        # Also set as environment variable for Bokeh's internal use
+        os.environ['BOKEH_ALLOW_WS_ORIGIN'] = ','.join([o for o in ws_origin if o != '*'])
+        logger.info("Allowing all websocket origins (+ explicit list)")
+    
+    # Prefix setup
+    prefix = server_cfg.get('prefix')
+    if prefix:
+        app_path = prefix.lstrip('/')
+        apps = {app_path: make_app}
+        logger.info(f"Starting NcDashboard server on http://{host}:{port}/{app_path}")
+    else:
+        apps = make_app
+        logger.info(f"Starting NcDashboard server on http://{host}:{port}")
+
+    # CDN and X-Headers
+    use_xheaders = server_cfg.get('use_xheaders', False)
+    if server_cfg.get('cdn', False):
+        os.environ['BOKEH_RESOURCES'] = 'cdn'
+        pn.config.resources = 'cdn'
+        logger.info("Using CDN for static resources")
+
+    pn.serve(apps, port=port, address=host, show=False,
+             websocket_origin=ws_origin, autoreload=True,
+             use_xheaders=use_xheaders)
