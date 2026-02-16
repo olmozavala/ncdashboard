@@ -267,7 +267,7 @@ class Dashboard:
         
         container = pn.Column(
             sizing_mode='fixed', # Allow FlexBox to wrap it
-            width=700, # Approx 7/12 width of 1080p screen
+            width=800, # Approx 8/12 width of 1080p screen
             min_height=480,
             margin=(10, 10),
             styles={'background': getattr(new_node, 'background_color', '#f0f0f0'), 'border-radius': '5px', 'padding': '10px'}
@@ -320,8 +320,8 @@ class Dashboard:
                 })
                 container.param.update(
                     sizing_mode='fixed',
-                    width=700,
-                    max_width=700,
+                    width=800,
+                    max_width=800,
                     height=None,
                     min_height=480,
                     styles=new_styles
