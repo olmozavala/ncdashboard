@@ -1,5 +1,4 @@
-# This is a the AnimationNode class, which inherits from the FigureNode class.
-# It is used to create a node that can be used to animate a model.
+# AnimationNode — animates through a coordinate dimension with pre-rendered frames.
 
 import numpy as np
 import holoviews as hv
@@ -8,19 +7,17 @@ import panel as pn
 from model.FigureNode import FigureNode
 from model.model_utils import PlotType, Resolutions
 
-import logging
 import cartopy.crs as ccrs
 import geoviews as gv
 from holoviews.operation.datashader import rasterize
+from loguru import logger
 
-logger = logging.getLogger("model.AnimationNode")
-
-# Set tolerance for irregular grids so Image does not warn (default 0.01 is strict)
+# Set tolerance for irregular grids so Image does not warn
 hv.config.image_rtol = 0.1
 
 class AnimationNode(FigureNode):
     def __init__(self, id, data, animation_coord, resolution, title=None, field_name=None, 
-                 bbox=None, plot_type = PlotType.ThreeD_Animation, parent=None,  cmap=None,
+                 bbox=None, plot_type=PlotType.ThreeD_Animation, parent=None, cmap=None,
                  x_range=None, y_range=None):
 
         super().__init__(id, data, title=title, field_name=field_name, bbox=bbox, 
@@ -38,7 +35,7 @@ class AnimationNode(FigureNode):
             coarsen = 8
 
         if coarsen > 1:
-            data = data.coarsen({self.coord_names[-2]:coarsen, self.coord_names[-1]:coarsen}, 
+            data = data.coarsen({self.coord_names[-2]: coarsen, self.coord_names[-1]: coarsen}, 
                                     boundary='trim').mean()
 
         # Crop data if ranges provided for performance, but with a buffer
@@ -54,7 +51,7 @@ class AnimationNode(FigureNode):
         self.player = pn.widgets.Player(
             name=f'Player {self.id}',
             start=0, end=len(self.anim_values) - 1, value=0,
-            loop_policy='loop', interval=500, # Initial speed
+            loop_policy='loop', interval=500,
             height=60, sizing_mode='stretch_width',
             show_loop_controls=False
         )
@@ -82,7 +79,6 @@ class AnimationNode(FigureNode):
         logger.info(f"Pre-rendering completed for {self.id}")
 
     def __del__(self):
-        # Stop the background thread if the node is destroyed
         self._is_alive = False
 
     def _get_frame(self, index):
@@ -91,7 +87,6 @@ class AnimationNode(FigureNode):
             return self._cache[index]
 
         val = self.anim_values[index]
-        # Select single frame with nearest method for safety with floats
         frame_data = self.data.sel({self.anim_coord_name: val}, method='nearest')
         
         lat_dim = self.coord_names[-2]
@@ -107,13 +102,10 @@ class AnimationNode(FigureNode):
 
         title = f"{self.title or self.id} ({self.cnorm}) - [{index}] {self.anim_coord_name}: {val_str}"
         
-        # Create gv.Image with explicit coords tuple for stability
         vdims = [hv.Dimension(self.field_name, label=self.label)]
         img = gv.Image((lons, lats, frame_data.values), [lon_dim, lat_dim], 
                        vdims=vdims, crs=ccrs.PlateCarree())
         
-        # Rasterize inside the callback with dynamic=False
-        # Increased width and pixel_ratio for better resolution during save
         result = rasterize(img, dynamic=False, width=800, pixel_ratio=2).opts(
             cmap=self.cmap,
             clim=self.clim,
@@ -132,11 +124,9 @@ class AnimationNode(FigureNode):
             return data
             
         try:
-            # Determine if ranges are in degrees (PlateCarree) or meters (Mercator)
             min_lon, max_lon = sorted([x_range[0], x_range[1]])
             min_lat, max_lat = sorted([y_range[0], y_range[1]])
 
-            # If values are large, they are likely Mercator/WebMercator meters.
             if abs(min_lon) > 500 or abs(min_lat) > 90:
                 logger.info("Ranges in meters (Mercator), transforming to PlateCarree (degrees) for slicing...")
                 src_crs = ccrs.Mercator()
@@ -148,17 +138,14 @@ class AnimationNode(FigureNode):
             else:
                 logger.info("Ranges appear to be in degrees. No transformation needed for slicing.")
 
-            # Add 20% buffer to the cropped data for local panning
             lon_buffer = (max_lon - min_lon) * 0.2
             lat_buffer = (max_lat - min_lat) * 0.2
             
-            # Identify lat/lon dims
             lat_dim = self.coord_names[-2]
             lon_dim = self.coord_names[-1]
 
             logger.info(f"Cropping data with buffer: Lon({min_lon-lon_buffer:.2f}, {max_lon+lon_buffer:.2f}), Lat({min_lat-lat_buffer:.2f}, {max_lat+lat_buffer:.2f})")
             
-            # Handle descending latitudes if necessary (common in netCDF)
             lats = data[lat_dim].values
             if len(lats) > 1 and lats[0] > lats[-1]:
                 lat_slice = slice(max_lat + lat_buffer, min_lat - lat_buffer)
@@ -175,35 +162,23 @@ class AnimationNode(FigureNode):
     def _render_frame(self, **kwargs):
         """Callback for DynamicMap to render a single frame of the animation."""
         index = kwargs.get('value', 0)
-        
         try:
             return self._get_frame(index)
         except Exception as e:
             logger.error(f"Error rendering frame {index}: {e}")
             return hv.Text(0, 0, f"Error rendering frame: {e}")
 
-    # Overloads the create_figure method
     def create_figure(self):
         logger.info(f"Creating dynamic animation for {self.id}...")
         
-        # Link player to the DynamicMap
         stream = hv.streams.Params(self.player, ['value'])
         self.dmap = hv.DynamicMap(self._render_frame, streams=[stream])
         
-        # Add tiles 
         tiles = gv.tile_sources.OSM()
-        
-        # Bokeh hook to force wheel_zoom as the active scroll tool.
-        def _activate_wheel_zoom(plot, element):
-            from bokeh.models import WheelZoomTool
-            for tool in plot.state.toolbar.tools:
-                if isinstance(tool, WheelZoomTool):
-                    plot.state.toolbar.active_scroll = tool
-                    break
 
         plot = (tiles * self.dmap).opts(
-            tools=['pan', 'wheel_zoom', 'save', 'copy', 'reset', 'hover'],
-            active_tools=['pan'],
+            tools=self.GEO_TOOLS,
+            active_tools=self.GEO_ACTIVE_TOOLS,
             responsive=True,
             aspect='equal'
         )
@@ -214,7 +189,6 @@ class AnimationNode(FigureNode):
                 min_lon, max_lon = sorted([self.x_range[0], self.x_range[1]])
                 min_lat, max_lat = sorted([self.y_range[0], self.y_range[1]])
 
-                # If the values are small (degrees), transform to Web Mercator meters for the plot
                 if abs(min_lon) <= 180 and abs(min_lat) <= 90:
                     from holoviews.util.transform import lon_lat_to_easting_northing
                     logger.info(f"Transforming degrees viewport to meters...")
@@ -231,26 +205,9 @@ class AnimationNode(FigureNode):
             except Exception as e:
                 logger.error(f"Failed to set initial viewport: {e}")
 
-        # Overlay with click marker
-        def _get_marker(x, y):
-            kdims = [self.coord_names[-1], self.coord_names[-2]]
-            
-            # Previous points in yellow
-            prev_points = self.clicked_points[:-1]
-            # Latest point in red to show "it has just clicked"
-            latest_point = self.clicked_points[-1:]
-            
-            p_prev = gv.Points(prev_points, kdims=kdims, crs=ccrs.PlateCarree()).opts(
-                color='yellow', size=12, marker='star', line_color='black', line_width=1
-            )
-            p_latest = gv.Points(latest_point, kdims=kdims, crs=ccrs.PlateCarree()).opts(
-                color='red', size=15, marker='star', line_color='black', line_width=1
-            )
-            return p_prev * p_latest
-            
-        marker_dmap = gv.project(hv.DynamicMap(_get_marker, streams=[self.marker_stream]), projection=ccrs.GOOGLE_MERCATOR)
-        # Apply hook on the FINAL overlay so it isn't lost
-        return (plot * marker_dmap).opts(hooks=[_activate_wheel_zoom])
+        # Add click markers and wheel_zoom hook using shared helpers
+        marker_dmap = self._build_marker_overlay()
+        return (plot * marker_dmap).opts(hooks=[self._activate_wheel_zoom])
 
     def get_controls(self):
         """Returns the player widget as navigation controls."""
