@@ -50,16 +50,18 @@ hv.config.logo = False
 hv.config.image_rtol = 0.1
 
 class NcDashboard:
-    def __init__(self, file_paths, regex, initial_state=None):
+    def __init__(self, file_paths, regex, initial_state=None, preloaded_data=None):
         """
         file_paths: path to directory or file list.
         regex: file pattern when path is a directory.
         initial_state: optional state dict to restore (from --state file).
+        preloaded_data: optional pre-loaded xarray Dataset to avoid re-reading files.
         """
         logger.info('Initializing new NcDashboard session...')
         
         # --- UI Components ---
-        self.main_area = pn.FlexBox(align_content='start', justify_content='start')
+        # FlexBox allows figures to tile side-by-side
+        self.main_area = pn.FlexBox(align_content='start', justify_content='start', sizing_mode='stretch_width', margin=10)
         self.sidebar_area = pn.Column(sizing_mode='stretch_width')
         
         # Custom Analysis modal components
@@ -75,7 +77,7 @@ class NcDashboard:
         )
         
         try:
-            self.ncdash = Dashboard(file_paths, regex)
+            self.ncdash = Dashboard(file_paths, regex, preloaded_data=preloaded_data)
         except Exception as e:
             logger.error(f"Failed to load data: {e}")
             # Create a simple nice text saying that the files can't be found
@@ -517,8 +519,22 @@ if __name__ == "__main__":
     if search_pattern and not glob.glob(search_pattern):
         logger.warning(f"No files found matching: {search_pattern}")
 
+    # --- Preload data ONCE at server startup ---
+    logger.info(f"Preloading dataset from {path} (regex: {regex or 'N/A'})...")
+    try:
+        import xarray as xr
+        from os.path import join as pjoin
+        if isinstance(path, list):
+            _preloaded_data = xr.open_mfdataset(path, decode_times=False)
+        else:
+            _preloaded_data = xr.open_mfdataset(pjoin(path, regex), decode_times=False)
+        logger.info(f"Dataset preloaded: {list(_preloaded_data.dims)} — {list(_preloaded_data.data_vars)}")
+    except Exception as e:
+        logger.error(f"Failed to preload data: {e}. Each session will load its own copy.")
+        _preloaded_data = None
+
     def make_app():
-        return NcDashboard(path, regex or '', initial_state=initial_state).template
+        return NcDashboard(path, regex or '', initial_state=initial_state, preloaded_data=_preloaded_data).template
 
     # Websocket origin setup
     ws_origin = [f"{host}:{port}", f"localhost:{port}", f"127.0.0.1:{port}"]
@@ -550,4 +566,7 @@ if __name__ == "__main__":
 
     pn.serve(apps, port=port, address=host, show=False,
              websocket_origin=ws_origin, autoreload=True,
-             use_xheaders=use_xheaders)
+             use_xheaders=use_xheaders,
+             websocket_max_message_size=10737418240, # 10GB
+             websocket_ping_interval=60,
+             websocket_ping_timeout=50)

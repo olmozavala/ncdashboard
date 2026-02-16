@@ -15,15 +15,19 @@ from proj_layout.utils import select_colormap, get_available_cmaps, get_cmap_obj
 from model import state as state_module
 
 class Dashboard:
-    def __init__(self, path, regex):
+    def __init__(self, path, regex, preloaded_data=None):
         self.path = path
         self.regex = regex
 
-        logger.info(f"Opening files in {self.path} with regex {self.regex}")
-        if isinstance(self.path, list):
-            data = xr.open_mfdataset(self.path, decode_times=False)
+        if preloaded_data is not None:
+            logger.info(f"Reusing preloaded dataset for {self.path}")
+            data = preloaded_data
         else:
-            data = xr.open_mfdataset(join(self.path, self.regex), decode_times=False)
+            logger.info(f"Opening files in {self.path} with regex {self.regex}")
+            if isinstance(self.path, list):
+                data = xr.open_mfdataset(self.path, decode_times=False)
+            else:
+                data = xr.open_mfdataset(join(self.path, self.regex), decode_times=False)
 
         self.tree_root = TwoDNode('root', data=data, parent=None)
         

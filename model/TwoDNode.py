@@ -45,18 +45,26 @@ class TwoDNode(FigureNode):
         # Project to Web Mercator BEFORE rasterizing for best performance/quality
         projected = gv.project(self.dmap, projection=ccrs.GOOGLE_MERCATOR)
         rasterized = rasterize(projected, pixel_ratio=2).opts(
-            tools=['hover', 'save', 'copy'],
             colorbar=True,
             responsive=True,
         )
 
         # Add tiles
         tiles = gv.tile_sources.OSM()
+
+        # Bokeh hook to force wheel_zoom as the active scroll tool.
+        # HoloViews' active_tools only handles drag/tap tools, not scroll.
+        def _activate_wheel_zoom(plot, element):
+            from bokeh.models import WheelZoomTool
+            for tool in plot.state.toolbar.tools:
+                if isinstance(tool, WheelZoomTool):
+                    plot.state.toolbar.active_scroll = tool
+                    break
         
-        # Store the base plot for potential overlay with transect path
         self.base_plot = (tiles * rasterized).opts(
-            active_tools=['wheel_zoom', 'pan'],
-            default_tools=['pan', 'wheel_zoom', 'save', 'copy', 'reset']
+            tools=['pan', 'wheel_zoom', 'save', 'copy', 'reset', 'hover'],
+            active_tools=['pan'],
+            responsive=True
         )
         
         # Overlay with click marker
@@ -77,7 +85,8 @@ class TwoDNode(FigureNode):
             return p_prev * p_latest
             
         marker_dmap = gv.project(hv.DynamicMap(_get_marker, streams=[self.marker_stream]), projection=ccrs.GOOGLE_MERCATOR)
-        self.base_plot = self.base_plot * marker_dmap
+        # Apply hook on the FINAL overlay so it isn't lost
+        self.base_plot = (self.base_plot * marker_dmap).opts(hooks=[_activate_wheel_zoom])
         
         return self.base_plot
 

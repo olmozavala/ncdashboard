@@ -83,7 +83,7 @@ class FourDNode(ThreeDNode):
         rasterized = rasterize(self.dmap, width=800, pixel_ratio=2).apply.opts(
             cmap=self.param.cmap,
             clim=self.param.clim,
-            tools=['hover', 'save', 'copy'],
+            tools=['pan', 'wheel_zoom', 'box_zoom', 'reset', 'hover', 'save', 'copy'],
             colorbar=True,
             responsive=True,
             aspect='equal'
@@ -94,9 +94,20 @@ class FourDNode(ThreeDNode):
 
         # Overlay with tiles
         tiles = gv.tile_sources.OSM()
+
+        # Bokeh hook to force wheel_zoom as the active scroll tool.
+        def _activate_wheel_zoom(plot, element):
+            from bokeh.models import WheelZoomTool
+            for tool in plot.state.toolbar.tools:
+                if isinstance(tool, WheelZoomTool):
+                    plot.state.toolbar.active_scroll = tool
+                    break
+
         base_plot = (tiles * rasterized).opts(
-            active_tools=['wheel_zoom', 'pan'],
-            default_tools=['pan', 'wheel_zoom', 'save', 'copy', 'reset']
+            tools=['pan', 'wheel_zoom', 'save', 'copy', 'reset', 'hover'],
+            active_tools=['pan'],
+            responsive=True,
+            aspect='equal'
         )
 
         # Overlay with click marker
@@ -117,7 +128,8 @@ class FourDNode(ThreeDNode):
             return p_prev * p_latest
             
         marker_dmap = gv.project(hv.DynamicMap(_get_marker, streams=[self.marker_stream]), projection=ccrs.GOOGLE_MERCATOR)
-        return base_plot * marker_dmap
+        # Apply hook on the FINAL overlay so it isn't lost
+        return (base_plot * marker_dmap).opts(hooks=[_activate_wheel_zoom])
 
     def get_stream_source(self):
         if not hasattr(self, 'dmap'):

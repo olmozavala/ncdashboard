@@ -118,7 +118,6 @@ class AnimationNode(FigureNode):
             cmap=self.cmap,
             clim=self.clim,
             colorbar=True,
-            tools=['hover'],
             responsive=True,
             aspect='equal',
             title=title
@@ -194,9 +193,17 @@ class AnimationNode(FigureNode):
         # Add tiles 
         tiles = gv.tile_sources.OSM()
         
-        # Apply layout options
+        # Bokeh hook to force wheel_zoom as the active scroll tool.
+        def _activate_wheel_zoom(plot, element):
+            from bokeh.models import WheelZoomTool
+            for tool in plot.state.toolbar.tools:
+                if isinstance(tool, WheelZoomTool):
+                    plot.state.toolbar.active_scroll = tool
+                    break
+
         plot = (tiles * self.dmap).opts(
-            active_tools=['wheel_zoom', 'pan'],
+            tools=['pan', 'wheel_zoom', 'save', 'copy', 'reset', 'hover'],
+            active_tools=['pan'],
             responsive=True,
             aspect='equal'
         )
@@ -205,7 +212,7 @@ class AnimationNode(FigureNode):
         if self.x_range and self.y_range:
             try:
                 min_lon, max_lon = sorted([self.x_range[0], self.x_range[1]])
-                min_lat, max_lat = sorted([y_range[0], y_range[1]])
+                min_lat, max_lat = sorted([self.y_range[0], self.y_range[1]])
 
                 # If the values are small (degrees), transform to Web Mercator meters for the plot
                 if abs(min_lon) <= 180 and abs(min_lat) <= 90:
@@ -242,7 +249,8 @@ class AnimationNode(FigureNode):
             return p_prev * p_latest
             
         marker_dmap = gv.project(hv.DynamicMap(_get_marker, streams=[self.marker_stream]), projection=ccrs.GOOGLE_MERCATOR)
-        return plot * marker_dmap
+        # Apply hook on the FINAL overlay so it isn't lost
+        return (plot * marker_dmap).opts(hooks=[_activate_wheel_zoom])
 
     def get_controls(self):
         """Returns the player widget as navigation controls."""
