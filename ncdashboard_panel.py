@@ -50,12 +50,13 @@ hv.config.logo = False
 hv.config.image_rtol = 0.1
 
 class NcDashboard:
-    def __init__(self, file_paths, regex, initial_state=None, preloaded_data=None):
+    def __init__(self, file_paths, regex, initial_state=None, preloaded_data=None, title=None):
         """
         file_paths: path to directory or file list.
         regex: file pattern when path is a directory.
         initial_state: optional state dict to restore (from --state file).
         preloaded_data: optional pre-loaded xarray Dataset to avoid re-reading files.
+        title: optional custom title to display in the header.
         """
         logger.info('Initializing new NcDashboard session...')
         
@@ -68,13 +69,27 @@ class NcDashboard:
         self.analysis_modal = None
         self.analysis_status = None
         
+        # Build header title: NcDashboard is a clickable link to GitHub
+        title_suffix = f" — {title}" if title else ""
+        header_title = f"NcDashboard{title_suffix}"
+
         # Initialize the template
         self.template = pn.template.BootstrapTemplate(
-            title='NcDashboard',
+            title=header_title,
             sidebar=[self.sidebar_area],
             main=[self.main_area],
             header_background='#354869'
         )
+
+        # Make NcDashboard clickable in the header
+        link_html = pn.pane.HTML(
+            f'<a href="https://github.com/olmozavala/ncdashboard" target="_blank" '
+            f'style="color: white; text-decoration: none; font-weight: bold; '
+            f'font-size: 1.1em; margin-left: 10px; opacity: 0.85;"'
+            f'>🔗 GitHub</a>',
+            sizing_mode='fixed', width=120, height=30
+        )
+        self.template.header.append(link_html)
         
         try:
             self.ncdash = Dashboard(file_paths, regex, preloaded_data=preloaded_data)
@@ -533,8 +548,12 @@ if __name__ == "__main__":
         logger.error(f"Failed to preload data: {e}. Each session will load its own copy.")
         _preloaded_data = None
 
+    # Custom title from config
+    custom_title = server_cfg.get('title')
+
     def make_app():
-        return NcDashboard(path, regex or '', initial_state=initial_state, preloaded_data=_preloaded_data).template
+        return NcDashboard(path, regex or '', initial_state=initial_state,
+                           preloaded_data=_preloaded_data, title=custom_title).template
 
     # Websocket origin setup
     ws_origin = [f"{host}:{port}", f"localhost:{port}", f"127.0.0.1:{port}"]
@@ -564,8 +583,11 @@ if __name__ == "__main__":
         pn.config.resources = 'cdn'
         logger.info("Using CDN for static resources")
 
+    autoreload = server_cfg.get('autoreload', False)
+
     pn.serve(apps, port=port, address=host, show=False,
-             websocket_origin=ws_origin, autoreload=True,
+             websocket_origin=ws_origin,
+             autoreload=autoreload,
              use_xheaders=use_xheaders,
              websocket_max_message_size=10737418240, # 10GB
              websocket_ping_interval=60,

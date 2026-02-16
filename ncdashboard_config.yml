@@ -2,11 +2,15 @@
 
 # --- Dashboard Server Settings ---
 server:
+  title: "HYCOM GOMb0.04 Reanalysis"
   host: "0.0.0.0"
   port: 8053 
   prefix: "ncdashboard_osc"
   use_xheaders: true
   cdn: true
+  # Hot reload: auto-restart server on code changes. Useful for development,
+  # but may cause figure drops on remote/proxied connections. Disable in production.
+  autoreload: false
   allow_all_origins: true
   # Explicitly allow the public domain
   allowed_origins: 
@@ -16,9 +20,22 @@ server:
     - "localhost:8054"
 
 # --- LLM Configuration ---
+# Options for default_provider: openai, gemini, anthropic, ollama
 llm:
   default_provider: "openai"
   providers:
     openai:
       api_key_env: "OPENAI_API_KEY"
       model: "gpt-4o-mini"
+
+    gemini:
+      api_key_env: "GEMINI_API_KEY"
+      model: "gemini-2.0-flash"
+
+    anthropic:
+      api_key_env: "ANTHROPIC_API_KEY"
+      model: "claude-3-5-sonnet-20241022"
+
+    ollama:
+      model: "qwen2.5-coder:3b"
+      base_url: "http://localhost:11434"
