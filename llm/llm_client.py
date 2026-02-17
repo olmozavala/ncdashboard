@@ -13,7 +13,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from netrc import netrc
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
 import requests
 from loguru import logger
 
@@ -403,7 +403,7 @@ class AnthropicClient(BaseLLMClient):
 
 
 def get_llm_client(
-    provider: Optional[str | LLMProviders] = None,
+    provider: Optional[Union[str, LLMProviders]] = None,
     model: Optional[str] = None,
     api_key: Optional[str] = None,
     base_url: Optional[str] = None,

@@ -6,14 +6,14 @@ to help LLMs generate accurate Python code.
 """
 
 import xarray as xr
-from typing import Optional
+from typing import Optional, Union
 from .prompts.base import SYSTEM_PROMPT, ERROR_CORRECTION_PROMPT, SUMMARY_PROMPT, CRITICAL_RULES, OUTPUT_FORMAT
 
 
 class PromptBuilder:
     """Builds prompts for LLM code generation from xarray data."""
     
-    def __init__(self, data: xr.DataArray | xr.Dataset):
+    def __init__(self, data: Union[xr.DataArray, xr.Dataset]):
         """
         Initialize with xarray data.
         

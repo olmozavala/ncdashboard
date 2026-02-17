@@ -8,7 +8,7 @@ validates output, and supports retry with error feedback.
 import xarray as xr
 import numpy as np
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Union
 from loguru import logger
 
 from .llm_client import BaseLLMClient
@@ -75,7 +75,7 @@ class CodeExecutor:
             filtered_lines.append(line)
         return '\n'.join(filtered_lines)
     
-    def execute(self, code: str, data: xr.DataArray | xr.Dataset) -> ExecutionResult:
+    def execute(self, code: str, data: Union[xr.DataArray, xr.Dataset]) -> ExecutionResult:
         """
         Execute code in sandboxed environment.
         
@@ -148,7 +148,7 @@ class CodeExecutor:
 
 def run_with_retry(
     llm_client: BaseLLMClient,
-    data: xr.DataArray | xr.Dataset,
+    data: Union[xr.DataArray, xr.Dataset],
     user_request: str,
     max_attempts: int = 3,
 ) -> ExecutionResult:
