@@ -59,13 +59,10 @@ class Dashboard:
         return get_cmap_object(name)
 
     def _apply_node_state(self, node, state: dict):
-        """Apply saved state (cmap, cnorm, indices) to a node."""
+        """Apply saved state (cmap, indices) to a node."""
         cmap_name = state.get("cmap")
         if cmap_name:
             node.cmap = self._cmap_from_name(cmap_name)
-        cnorm = state.get("cnorm")
-        if cnorm and hasattr(node, "cnorm"):
-            node.cnorm = cnorm
         if hasattr(node, "third_coord_idx") and "third_coord_idx" in state:
             node.third_coord_idx = state["third_coord_idx"]
         if hasattr(node, "depth_idx") and "depth_idx" in state:
@@ -81,7 +78,7 @@ class Dashboard:
         """
         Create figures from a saved state (path/regex must match current dashboard).
         Creates root-level figures first, then children (profiles, animations),
-        applying cmap/cnorm/zoom/indices.
+        applying cmap/zoom/indices.
         """
         figures = state_dict.get("figures", [])
         
@@ -198,7 +195,7 @@ class Dashboard:
     def create_default_figure(self, c_field, plot_type, layout_container=None, new_node=None, state=None):
         '''
         Creates a figure for the dashboard. Returns a Panel object (Column).
-        If state is provided (from load), uses state id/cmap/cnorm/indices and applies them.
+        If state is provided (from load), uses state id/cmap/indices and applies them.
         '''
         # Log plot creation details
         dims_str = "Unknown"
@@ -240,7 +237,7 @@ class Dashboard:
 
             self.tree_root.add_child(new_node)
 
-        # Apply saved state (cmap, cnorm, indices) when loading
+        # Apply saved state (cmap, indices) when loading
         if state is not None:
             self._apply_node_state(new_node, state) 
 
@@ -351,37 +348,26 @@ class Dashboard:
             if name in get_available_cmaps():
                 initial_cmap = name
 
-        # Determine initial clim
+        # Determine initial color range
         try:
-            # Using percentiles (2%, 98%) is much more robust than mean/std.
-            # We compute() first to avoid dask rechunking errors on core dimensions.
-            # If the data is massive, we take a coarse sample to keep it fast.
             sample_data = new_node.data
-            if hasattr(sample_data, 'size') and sample_data.size > 1000000: # > 1M points
-                # Simple stride-based sampling for speed
-                sample_data = sample_data.thin(5) 
-            
-            # Compute to local memory to avoid 'consists of multiple chunks' error
+            if hasattr(sample_data, 'size') and sample_data.size > 1000000:
+                sample_data = sample_data.thin(5)
             computed_data = sample_data.compute()
-            
-            # Check if dmin/dmax are already computed or if it's a single point
             if computed_data.size > 1:
                 q = computed_data.quantile([0.02, 0.98]).values
                 dmin, dmax = float(q[0]), float(q[1])
             elif computed_data.size == 1:
-                 val = float(computed_data.values.item())
-                 dmin, dmax = val - 0.1, val + 0.1
+                val = float(computed_data.values.item())
+                dmin, dmax = val - 0.1, val + 0.1
             else:
-                 dmin, dmax = 0, 1
-
-            # If dmin and dmax are the same, broaden the range slightly
+                dmin, dmax = 0, 1
             if dmin == dmax:
                 dmin -= 0.1 * abs(dmin) if dmin != 0 else 0.1
                 dmax += 0.1 * abs(dmax) if dmax != 0 else 0.1
         except Exception as e:
             logger.warning(f"Failed to calculate robust clim: {e}. Falling back to simple range.")
             try:
-                # Still use computed data if possible
                 if 'computed_data' in locals():
                     dmin = float(computed_data.min())
                     dmax = float(computed_data.max())
@@ -390,7 +376,7 @@ class Dashboard:
                     dmax = float(new_node.data.max().compute())
             except:
                 dmin, dmax = 0, 1
-            
+
         initial_clim = getattr(new_node, 'clim', (dmin, dmax))
         if initial_clim == (None, None) or initial_clim == (0, 0):
             initial_clim = (round(dmin, 1), round(dmax, 1))
@@ -398,17 +384,15 @@ class Dashboard:
         else:
             initial_clim = (round(initial_clim[0], 1), round(initial_clim[1], 1))
 
-        # Clim Inputs
+        # Color Range Inputs
         input_style = ":host input { text-align: center; }"
         min_input = pn.widgets.FloatInput(name='', value=initial_clim[0], width=85, height=30, align='center', margin=(0, 2), format='0.0', stylesheets=[input_style])
         max_input = pn.widgets.FloatInput(name='', value=initial_clim[1], width=85, height=30, align='center', margin=(0, 2), format='0.0', stylesheets=[input_style])
 
         def update_clim(event):
             new_node.clim = (min_input.value, max_input.value)
-            # Clear cache for animations
             if hasattr(new_node, '_cache'):
                 new_node._cache.clear()
-            # For animations, trigger UI sync
             if hasattr(new_node, 'player'):
                 new_node.player.param.trigger('value')
 

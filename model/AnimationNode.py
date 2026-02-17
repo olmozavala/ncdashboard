@@ -100,7 +100,7 @@ class AnimationNode(FigureNode):
         else:
             val_str = str(val)
 
-        title = f"{self.title or self.id} ({self.cnorm}) - [{index}] {self.anim_coord_name}: {val_str}"
+        title = f"{self.title or self.id} - [{index}] {self.anim_coord_name}: {val_str}"
         
         vdims = [hv.Dimension(self.field_name, label=self.label)]
         img = gv.Image((lons, lats, frame_data.values), [lon_dim, lat_dim], 
@@ -163,7 +163,7 @@ class AnimationNode(FigureNode):
             else:
                 val_str = str(val)
                 
-            title = f"{self.title or self.id} ({self.cnorm}) - [{index}] {self.anim_coord_name}: {val_str}"
+            title = f"{self.title or self.id} - [{index}] {self.anim_coord_name}: {val_str}"
             
             # Return styled image. Rasterize is applied at the top level.
             return img.opts(cmap=self.cmap, clim=self.clim, title=title)
@@ -175,7 +175,7 @@ class AnimationNode(FigureNode):
         logger.info(f"Creating dynamic animation for {self.id}...")
         
         player_stream = hv.streams.Params(self.player, ['value'])
-        param_stream = hv.streams.Params(self, ['cmap', 'cnorm', 'clim'])
+        param_stream = hv.streams.Params(self, ['cmap', 'clim'])
         self.dmap = hv.DynamicMap(self._render_frame, streams=[player_stream, param_stream])
         
         # Project to Web Mercator BEFORE rasterizing for best performance/quality

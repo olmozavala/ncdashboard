@@ -25,11 +25,6 @@ class ThreeDNode(FigureNode):
         logger.info(f"Created ThreeDNode: id={id}, shape={data.shape}, coords={self.coord_names}")
         self.third_coord_name = data.coords[self.coord_names[0]].name
         
-        # Stream for dynamic updates
-        self.update_stream = hv.streams.Counter()
-        # Stream for capturing viewport ranges (for animation)
-        self.range_stream = hv.streams.RangeXY()
-        
         # Transect mode state
         self.transect_mode = False
         self.transect_path = None
@@ -39,16 +34,7 @@ class ThreeDNode(FigureNode):
         # Retrieve params from kwargs (stream) or self (fallback)
         # We renamed stream params to avoid auto-mapping conflicts in HoloViews
         cmap = kwargs.get('cmap_val', self.cmap)
-        cnorm = kwargs.get('cnorm_val', self.cnorm)
         clim = kwargs.get('clim_val', self.clim)
-        
-        # Paranoia check: if for some reason we got the parameter object, force default
-        try:
-             c1, c2 = clim
-             # Ensure they are valid numbers or None
-             # This filters out param objects which are not iterable like this or have different structure
-        except:
-             clim = (None, None)
 
         data = self.data
         if self.plot_type == PlotType.ThreeD:
@@ -67,13 +53,13 @@ class ThreeDNode(FigureNode):
         # We set a unique group to prevent collision in the Panel/Bokeh rendering pipeline
         img = gv.Image((lons, lats, data.values), [self.coord_names[-1], self.coord_names[-2]], 
                        vdims=vdims, crs=ccrs.PlateCarree(), group=f"Group_{self.id}")
-        return img.opts(title=title, cmap=cmap, cnorm=cnorm, clim=clim)
+        return img.opts(title=title, cmap=cmap, clim=clim)
 
     def create_figure(self):
-        # Create a stream that watches for cmap, cnorm and clim changes
+        # Create a stream that watches for cmap and clim (color range) changes
         # Rename parameters to prevent duplicate/conflicting application by HoloViews
-        self.param_stream = hv.streams.Params(self, ['cnorm', 'cmap', 'clim'], 
-                                              rename={'cnorm': 'cnorm_val', 'cmap': 'cmap_val', 'clim': 'clim_val'})
+        self.param_stream = hv.streams.Params(self, ['cmap', 'clim'], 
+                                              rename={'cmap': 'cmap_val', 'clim': 'clim_val'})
 
         # Return a DynamicMap that updates when update_stream or range_stream is triggered
         # We also watch param_stream so the title (which shows the scale) updates

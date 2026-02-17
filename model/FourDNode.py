@@ -59,20 +59,11 @@ class FourDNode(ThreeDNode):
         lats = lats.values
         lons = lons.values
 
-        if self.plot_type == PlotType.FourD:
-            # We use self.third_coord_idx (from parent) for the first dimension (Time)
-            current_slice = data[self.third_coord_idx, self.depth_idx,:,:]
+        current_slice = data[self.third_coord_idx, self.depth_idx,:,:]
 
         # Retrieve params from kwargs (stream) or self (fallback)
         cmap = kwargs.get('cmap_val', self.cmap)
-        cnorm = kwargs.get('cnorm_val', self.cnorm)
         clim = kwargs.get('clim_val', self.clim)
-
-        # Paranoia check: if for some reason we got the parameter object, force default
-        try:
-             c1, c2 = clim
-        except:
-             clim = (None, None)
 
         title = f'{self.title} at {self.coord_names[0].capitalize()} {self.third_coord_idx} and {self.coord_names[1].capitalize()} {self.depth_idx}'
         
@@ -82,42 +73,37 @@ class FourDNode(ThreeDNode):
         group_name = f"Group_{self.id}"
         img = gv.Image((lons, lats, current_slice.values), [self.coord_names[-1], self.coord_names[-2]], 
                        vdims=vdims, crs=ccrs.PlateCarree(), group=group_name)
-        return img.opts(title=title, cmap=cmap, cnorm=cnorm, clim=clim)
+
+        return img.opts(title=title, cmap=cmap, clim=clim)
 
     def create_figure(self):
-        # Create a stream that watches for cmap, cnorm and clim changes
-        self.param_stream = hv.streams.Params(self, ['cnorm', 'cmap', 'clim'],
-                                              rename={'cnorm': 'cnorm_val', 'cmap': 'cmap_val', 'clim': 'clim_val'})
+        # Create a stream that watches for cmap and clim (color range) changes
+        self.param_stream = hv.streams.Params(self, ['cmap', 'clim'],
+                                              rename={'cmap': 'cmap_val', 'clim': 'clim_val'})
 
         # Return a DynamicMap that updates when update_stream or range_stream is triggered
         # We also watch param_stream so the title (which shows the scale) updates
         self.dmap = hv.DynamicMap(self._render_plot, 
                                   streams=[self.update_stream, self.range_stream, self.param_stream])
-        
-        # Apply options to the dmap (Image) directly since we are not rasterizing
-        # Note: Rasterization was disabled to resolve stability issues with multiple plots
-        styled_dmap = self.dmap.opts(
+
+        # Wrap in rasterize: it will render the data into an image server-side
+        styled_dmap = rasterize(self.dmap, pixel_ratio=2).opts(
             colorbar=True,
             responsive=True,
-            aspect='equal',
-            framewise=True,
-            shared_axes=False
+            shared_axes=False,
+            default_tools=[],
+            tools=['hover','pan','wheel_zoom'],
+            active_tools=['pan','wheel_zoom']
         )
 
         # Overlay with tiles
         tiles = gv.tile_sources.OSM()
 
-        base_plot = (tiles * styled_dmap).opts(
-            tools=self.GEO_TOOLS,
-            active_tools=self.GEO_ACTIVE_TOOLS,
-            responsive=True,
-            aspect='equal'
-        )
-
         # Overlay with click marker
         marker_dmap = self._build_marker_overlay()
-        # Apply hook on the FINAL overlay so it isn't lost
-        return (base_plot * marker_dmap).opts(hooks=[self._activate_wheel_zoom])
+        final_plot = (tiles * styled_dmap * marker_dmap)
+
+        return final_plot
 
     def get_stream_source(self):
         if not hasattr(self, 'dmap'):
@@ -152,64 +138,6 @@ class FourDNode(ThreeDNode):
     def get_depth_idx(self):
         return self.depth_idx
     
-    def _create_transect(self):
-        """
-        Override transect creation for 4D data.
-        Creates spatial transect (lat/lon) preserving time and depth dimensions.
-        Output is a ThreeDNode with time slider (distance × depth, navigable by time).
-        """
-        if self.transect_stream is None or not self.transect_stream.data:
-            logger.warning("No transect path drawn yet")
-            return
-            
-        xs_list = self.transect_stream.data.get('xs', [])
-        ys_list = self.transect_stream.data.get('ys', [])
-        
-        if not xs_list or len(xs_list[0]) < 2:
-            logger.warning("Transect path must have at least 2 points")
-            return
-            
-        path_xs = xs_list[0]
-        path_ys = ys_list[0]
-        
-        logger.info(f"Creating spatial transect with {len(path_xs)} vertices from 4D data")
-        
-        if self.add_node_callback is None:
-            logger.warning("No add_node_callback found for transect creation")
-            return
-            
-        from model.transect_utils import extract_transect, get_transect_title
-        
-        # Extract transect data (4D -> 3D: time × depth × distance)
-        transect_data = extract_transect(self.data, path_xs, path_ys)
-        
-        # Generate title
-        start_point = (path_xs[0], path_ys[0])
-        end_point = (path_xs[-1], path_ys[-1])
-        title = get_transect_title(self.title, start_point, end_point)
-        
-        # Use callback if available to generate unique ID
-        if self.id_generator_callback:
-            node_id = self.id_generator_callback(f"{self.id}_transect")
-        else:
-            node_id = f"{self.id}_transect"
-
-        # Create ThreeDNode for 3D transect output
-        # The output has dims: [time, depth, distance]
-        # We'll display it as distance × depth with time navigation
-        new_node = ThreeDNode(
-            id=node_id,
-            data=transect_data,
-            third_coord_idx=0,
-            title=title,
-            field_name=self.field_name,
-            plot_type=PlotType.Transect_3D,
-            parent=self
-        )
-        
-        self.add_node_callback(new_node)
-        logger.info(f"Created transect node: {new_node.id}")
-
     def get_controls(self):
         # Time controls from parent (specifying animate_coord)
         label = self.coord_names[0].capitalize() if len(self.coord_names) > 0 else "Slice"

@@ -36,10 +36,10 @@ class TwoDNode(FigureNode):
         # We wrap in a DynamicMap to allow reactive updates to cmap 
         # without replacing the entire figure object in the UI.
         def _get_image(cmap, clim):
-            return self.img.opts(cmap=cmap, cnorm=self.cnorm, clim=clim)
+            return self.img.opts(cmap=cmap, clim=clim)
         
-        # Create stream for cmap and cnorm
-        self.param_stream = hv.streams.Params(self, ['cmap', 'cnorm', 'clim'])
+        # Create stream for cmap and clim (color range)
+        self.param_stream = hv.streams.Params(self, ['cmap', 'clim'])
         self.dmap = hv.DynamicMap(_get_image, streams=[self.param_stream])
 
         # Project to Web Mercator BEFORE rasterizing for best performance/quality

@@ -10,7 +10,7 @@ server:
   cdn: true
   # Hot reload: auto-restart server on code changes. Useful for development,
   # but may cause figure drops on remote/proxied connections. Disable in production.
-  autoreload: false
+  autoreload: true
   allow_all_origins: true
   # Explicitly allow the public domain
   allowed_origins: 

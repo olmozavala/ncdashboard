@@ -15,8 +15,7 @@ class ParameterizedABC(param.parameterized.ParameterizedMetaclass, ABCMeta):
 
 class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
     cmap = param.Parameter()
-    cnorm = param.Selector(default='linear', objects=['linear', 'log', 'eq_hist'])
-    clim = param.Tuple(default=(None, None), length=2)
+    clim = param.Tuple(default=(None, None), length=2)  # Color range (min, max) for the colorbar
     
     # Common tools for geographic plots
     GEO_TOOLS = ['pan', 'wheel_zoom', 'save', 'copy', 'reset', 'hover']
@@ -34,7 +33,13 @@ class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
         self.add_node_callback = None
         self.id_generator_callback = None
         self.maximized = False
-        self.cnorm = 'linear'
+
+        # Streams shared by all geo nodes:
+        # update_stream: triggers DynamicMap re-render (e.g. when slider changes)
+        # range_stream: captures current viewport (x/y ranges) for zoom tracking
+        self.update_stream = hv.streams.Counter()
+        self.range_stream = hv.streams.RangeXY()
+
         
         # Background color for relationship tracking
         PASTEL_COLORS = [
@@ -99,14 +104,6 @@ class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
         except ValueError:
             y = 0 # Handle potential pole issues
         return x, y
-
-    def _activate_wheel_zoom(self, plot, element):
-        """Bokeh hook to force wheel_zoom as the active scroll tool."""
-        from bokeh.models import WheelZoomTool
-        for tool in plot.state.toolbar.tools:
-            if isinstance(tool, WheelZoomTool):
-                plot.state.toolbar.active_scroll = tool
-                break
 
     def _build_marker_overlay(self):
         """Build a DynamicMap for the tap marker overlay."""
