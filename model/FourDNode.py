@@ -1,4 +1,5 @@
-# FourDNode class — inherits from ThreeDNode to add a 4th dimension (depth).
+# This is a the FourDNode class, which inherits from the FigureNode class.
+# It is used to create a node that can be used plot 4D data.
 
 import holoviews as hv
 import geoviews as gv
@@ -9,10 +10,14 @@ from holoviews.operation.datashader import rasterize
 from model.ThreeDNode import ThreeDNode
 from model.model_utils import PlotType, get_all_coords
 from loguru import logger
+import param
 
 class FourDNode(ThreeDNode):
+    # This is the constructor for the AnimationNode class. It calls its parent's constructor.
+    # It also sets the animation coordinate and the resolution of the animation.
+    # Eventhough the 1st and 2nd dimensions may not be time and depth, we are still calling it like that. 
     def __init__(self, id, data, time_idx, depth_idx, title=None, field_name=None, 
-                 bbox=None, plot_type=PlotType.FourD, parent=None, cmap=None, **params):
+                 bbox=None, plot_type = PlotType.FourD, parent=None,  cmap=None, **params):
         super().__init__(id, data, time_idx, title=title, field_name=field_name,
                             bbox=bbox, plot_type=plot_type, parent=parent, cmap=cmap, **params)
         
@@ -21,58 +26,105 @@ class FourDNode(ThreeDNode):
         logger.info(f"Created FourDNode: id={id}, shape={data.shape}, coords={self.coord_names}")
 
     def _animate_callback(self, animation_coord, data=None):
-        """Overrides animation callback to slice 4D data into 3D before animation."""
+        """
+        Overrides animation callback to slice 4D data into 3D before animation.
+        """
+        # Data structure: [Time, Depth, Lat, Lon]
+        # self.coord_names[0] is Time (third_coord_idx)
+        # self.coord_names[1] is Depth (depth_idx)
+        
         sliced_data = self.data
         
-        if animation_coord == self.coord_names[0]:  # Animating Time
+        if animation_coord == self.coord_names[0]: # Animating Time
+             # Fix Depth to current index
              depth_dim = self.coord_names[1]
+             # Select returns a new dataset with that dimension removed (if drop=True which is default for simple index selection in xarray? No, wait)
+             # .isel(depth=0) reduces dimension.
              sliced_data = self.data.isel({depth_dim: self.depth_idx})
              logger.info(f"Animating Time. Sliced Depth at index {self.depth_idx}. New shape: {sliced_data.shape}")
              
-        elif animation_coord == self.coord_names[1]:  # Animating Depth
+        elif animation_coord == self.coord_names[1]: # Animating Depth
+             # Fix Time to current index
              time_dim = self.coord_names[0]
              sliced_data = self.data.isel({time_dim: self.third_coord_idx})
              logger.info(f"Animating Depth. Sliced Time at index {self.third_coord_idx}. New shape: {sliced_data.shape}")
         
+        # Call parent with sliced data
         super()._animate_callback(animation_coord, data=sliced_data)
 
     def _render_plot(self, counter=0, **kwargs):
-        data = self.data
+        colormap = self.cmap
+        data = self.data  # Because it is 4D we assume the spatial coordinates are the last 2
         times, zaxis, lats, lons = get_all_coords(data)
         lats = lats.values
         lons = lons.values
 
         if self.plot_type == PlotType.FourD:
-            current_slice = data[self.third_coord_idx, self.depth_idx, :, :]
+            # We use self.third_coord_idx (from parent) for the first dimension (Time)
+            current_slice = data[self.third_coord_idx, self.depth_idx,:,:]
+
+        # Retrieve params from kwargs (stream) or self (fallback)
+        cmap = kwargs.get('cmap_val', self.cmap)
+        cnorm = kwargs.get('cnorm_val', self.cnorm)
+        clim = kwargs.get('clim_val', self.clim)
+
+        # Paranoia check: if for some reason we got the parameter object, force default
+        try:
+             c1, c2 = clim
+        except:
+             clim = (None, None)
 
         title = f'{self.title} at {self.coord_names[0].capitalize()} {self.third_coord_idx} and {self.coord_names[1].capitalize()} {self.depth_idx}'
         
+        # Use geoviews Image for geographic plotting
         vdims = [hv.Dimension(self.field_name, label=self.label)]
+        # We set a unique group to prevent collision in the Panel/Bokeh rendering pipeline
+        group_name = f"Group_{self.id}"
         img = gv.Image((lons, lats, current_slice.values), [self.coord_names[-1], self.coord_names[-2]], 
-                       vdims=vdims, crs=ccrs.PlateCarree())
-        return img.opts(title=title)
+                       vdims=vdims, crs=ccrs.PlateCarree(), group=group_name)
+        return img.opts(title=title, cmap=cmap, cnorm=cnorm, clim=clim)
 
     def create_figure(self):
-        # Only time/depth index changes and range changes trigger re-rendering of the data
+        # Create a stream that watches for cmap, cnorm and clim changes
+        self.param_stream = hv.streams.Params(self, ['cnorm', 'cmap', 'clim'],
+                                              rename={'cnorm': 'cnorm_val', 'cmap': 'cmap_val', 'clim': 'clim_val'})
+
+        # Return a DynamicMap that updates when update_stream or range_stream is triggered
+        # We also watch param_stream so the title (which shows the scale) updates
         self.dmap = hv.DynamicMap(self._render_plot, 
-                                  streams=[self.update_stream, self.range_stream])
+                                  streams=[self.update_stream, self.range_stream, self.param_stream])
         
-        # We apply visual updates (cmap/clim/cnorm) reactively using .apply.opts()
-        # This prevents the viewport from resetting when colors change.
-        rasterized = rasterize(self.dmap, width=800, pixel_ratio=2).apply.opts(
-            cmap=self.param.cmap,
-            clim=self.param.clim,
-            cnorm=self.param.cnorm,
+        # Apply options to the dmap (Image) directly since we are not rasterizing
+        # Note: Rasterization was disabled to resolve stability issues with multiple plots
+        styled_dmap = self.dmap.opts(
             colorbar=True,
+            responsive=True,
+            aspect='equal',
+            framewise=True,
+            shared_axes=False
+        )
+
+        # Overlay with tiles
+        tiles = gv.tile_sources.OSM()
+
+        base_plot = (tiles * styled_dmap).opts(
+            tools=self.GEO_TOOLS,
+            active_tools=self.GEO_ACTIVE_TOOLS,
             responsive=True,
             aspect='equal'
         )
-        
-        self.range_stream.source = rasterized
 
-        # Build the geo overlay using the shared helper
-        return self._build_geo_overlay(rasterized, responsive=True, aspect='equal')
+        # Overlay with click marker
+        marker_dmap = self._build_marker_overlay()
+        # Apply hook on the FINAL overlay so it isn't lost
+        return (base_plot * marker_dmap).opts(hooks=[self._activate_wheel_zoom])
 
+    def get_stream_source(self):
+        if not hasattr(self, 'dmap'):
+            self.create_figure()
+        return self.dmap
+
+    # Next time and depth functions are used to update the time and depth indices.
     def next_depth(self):
         self.depth_idx = (self.depth_idx + 1) % len(self.data[self.depth_coord_name])
         self.update_stream.event(counter=self.update_stream.counter + 1)
@@ -100,7 +152,66 @@ class FourDNode(ThreeDNode):
     def get_depth_idx(self):
         return self.depth_idx
     
+    def _create_transect(self):
+        """
+        Override transect creation for 4D data.
+        Creates spatial transect (lat/lon) preserving time and depth dimensions.
+        Output is a ThreeDNode with time slider (distance × depth, navigable by time).
+        """
+        if self.transect_stream is None or not self.transect_stream.data:
+            logger.warning("No transect path drawn yet")
+            return
+            
+        xs_list = self.transect_stream.data.get('xs', [])
+        ys_list = self.transect_stream.data.get('ys', [])
+        
+        if not xs_list or len(xs_list[0]) < 2:
+            logger.warning("Transect path must have at least 2 points")
+            return
+            
+        path_xs = xs_list[0]
+        path_ys = ys_list[0]
+        
+        logger.info(f"Creating spatial transect with {len(path_xs)} vertices from 4D data")
+        
+        if self.add_node_callback is None:
+            logger.warning("No add_node_callback found for transect creation")
+            return
+            
+        from model.transect_utils import extract_transect, get_transect_title
+        
+        # Extract transect data (4D -> 3D: time × depth × distance)
+        transect_data = extract_transect(self.data, path_xs, path_ys)
+        
+        # Generate title
+        start_point = (path_xs[0], path_ys[0])
+        end_point = (path_xs[-1], path_ys[-1])
+        title = get_transect_title(self.title, start_point, end_point)
+        
+        # Use callback if available to generate unique ID
+        if self.id_generator_callback:
+            node_id = self.id_generator_callback(f"{self.id}_transect")
+        else:
+            node_id = f"{self.id}_transect"
+
+        # Create ThreeDNode for 3D transect output
+        # The output has dims: [time, depth, distance]
+        # We'll display it as distance × depth with time navigation
+        new_node = ThreeDNode(
+            id=node_id,
+            data=transect_data,
+            third_coord_idx=0,
+            title=title,
+            field_name=self.field_name,
+            plot_type=PlotType.Transect_3D,
+            parent=self
+        )
+        
+        self.add_node_callback(new_node)
+        logger.info(f"Created transect node: {new_node.id}")
+
     def get_controls(self):
+        # Time controls from parent (specifying animate_coord)
         label = self.coord_names[0].capitalize() if len(self.coord_names) > 0 else "Slice"
         time_controls = self._make_nav_controls(
             self.first_slice, self.prev_slice, self.next_slice, self.last_slice,
@@ -108,6 +219,7 @@ class FourDNode(ThreeDNode):
             anim_coord=self.coord_names[0]
         )
         
+        # Depth controls using helper from parent (specifying animate_coord)
         depth_label = self.coord_names[1].capitalize() if len(self.coord_names) > 1 else "Depth"
         depth_controls = self._make_nav_controls(
             self.first_depth, self.prev_depth, self.next_depth, self.last_depth,
@@ -116,3 +228,4 @@ class FourDNode(ThreeDNode):
         )
         
         return pn.Column(time_controls, depth_controls)
+

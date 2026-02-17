@@ -9,8 +9,12 @@ from loguru import logger
 from model.FigureNode import FigureNode
 from model.AnimationNode import AnimationNode
 from model.model_utils import PlotType, Resolutions, get_all_coords
+import param
 
 class ThreeDNode(FigureNode):
+    # This is the constructor for the AnimationNode class. It calls its parent's constructor.
+    # It also sets the animation coordinate and the resolution of the animation.
+    # Eventhough the 1st dimensions may not be time, we are still calling it like that. 
     def __init__(self, id, data, third_coord_idx=0, plot_type=PlotType.ThreeD, 
                  title=None, field_name=None, bbox=None, parent=None, cmap=None, **params):
 
@@ -21,48 +25,90 @@ class ThreeDNode(FigureNode):
         logger.info(f"Created ThreeDNode: id={id}, shape={data.shape}, coords={self.coord_names}")
         self.third_coord_name = data.coords[self.coord_names[0]].name
         
-        # Stream for dynamic updates (index changes)
+        # Stream for dynamic updates
         self.update_stream = hv.streams.Counter()
-        # Stream for capturing viewport ranges
+        # Stream for capturing viewport ranges (for animation)
         self.range_stream = hv.streams.RangeXY()
+        
+        # Transect mode state
+        self.transect_mode = False
+        self.transect_path = None
+        self.transect_stream = None
 
     def _render_plot(self, counter=0, **kwargs):
+        # Retrieve params from kwargs (stream) or self (fallback)
+        # We renamed stream params to avoid auto-mapping conflicts in HoloViews
+        cmap = kwargs.get('cmap_val', self.cmap)
+        cnorm = kwargs.get('cnorm_val', self.cnorm)
+        clim = kwargs.get('clim_val', self.clim)
+        
+        # Paranoia check: if for some reason we got the parameter object, force default
+        try:
+             c1, c2 = clim
+             # Ensure they are valid numbers or None
+             # This filters out param objects which are not iterable like this or have different structure
+        except:
+             clim = (None, None)
+
         data = self.data
         if self.plot_type == PlotType.ThreeD:
+            # We assume logical structure [time, lat, lon] for 3D
+            # Select the time slice
             data = self.data[self.third_coord_idx, :, :]
 
+        # We assume the last two coordinates are spatial (lat, lon)
         lats = data.coords[self.coord_names[-2]].values
         lons = data.coords[self.coord_names[-1]].values
 
         title = f'{self.title} at {self.coord_names[0].capitalize()} {self.third_coord_idx}'
 
+        # Use geoviews Image for geographic plotting
         vdims = [hv.Dimension(self.field_name, label=self.label)]
+        # We set a unique group to prevent collision in the Panel/Bokeh rendering pipeline
         img = gv.Image((lons, lats, data.values), [self.coord_names[-1], self.coord_names[-2]], 
-                       vdims=vdims, crs=ccrs.PlateCarree())
-        return img.opts(title=title)
+                       vdims=vdims, crs=ccrs.PlateCarree(), group=f"Group_{self.id}")
+        return img.opts(title=title, cmap=cmap, cnorm=cnorm, clim=clim)
 
     def create_figure(self):
-        # We only put index and range streams in the DynamicMap.
-        # This ensures that data only re-reads when the slice index changes.
-        # We do NOT include cmap/clim stream here to avoid zoom resets.
+        # Create a stream that watches for cmap, cnorm and clim changes
+        # Rename parameters to prevent duplicate/conflicting application by HoloViews
+        self.param_stream = hv.streams.Params(self, ['cnorm', 'cmap', 'clim'], 
+                                              rename={'cnorm': 'cnorm_val', 'cmap': 'cmap_val', 'clim': 'clim_val'})
+
+        # Return a DynamicMap that updates when update_stream or range_stream is triggered
+        # We also watch param_stream so the title (which shows the scale) updates
         self.dmap = hv.DynamicMap(self._render_plot, 
-                                  streams=[self.update_stream, self.range_stream])
+                                  streams=[self.update_stream, self.range_stream, self.param_stream])
         
-        # We link cmap, clim, and cnorm using .apply.opts() on the rasterized output.
-        # This keeps the Bokeh plot object stable while allowing visual updates.
-        rasterized = rasterize(self.dmap, width=800, pixel_ratio=2).apply.opts(
-            cmap=self.param.cmap,
-            clim=self.param.clim,
-            cnorm=self.param.cnorm,
+        # Apply options to the dmap (Image) directly since we are not rasterizing
+        # Note: Rasterization was disabled to resolve stability issues with multiple plots
+        styled_dmap = self.dmap.opts(
             colorbar=True,
+            responsive=True,
+            aspect='equal',
+            framewise=True,
+            shared_axes=False
+        )
+
+        # Overlay with tiles
+        tiles = gv.tile_sources.OSM()
+
+        base_plot = (tiles * styled_dmap).opts(
+            tools=self.GEO_TOOLS,
+            active_tools=self.GEO_ACTIVE_TOOLS,
             responsive=True,
             aspect='equal'
         )
-        
-        self.range_stream.source = rasterized
 
-        # Build the geo overlay using the shared helper
-        return self._build_geo_overlay(rasterized, responsive=True, aspect='equal')
+        # Overlay with click marker
+        marker_dmap = self._build_marker_overlay()
+        # Apply hook on the FINAL overlay so it isn't lost
+        return (base_plot * marker_dmap).opts(hooks=[self._activate_wheel_zoom])
+
+    def get_stream_source(self):
+        if not hasattr(self, 'dmap'):
+            self.create_figure()
+        return self.dmap
 
     def next_slice(self):
         self.third_coord_idx = (self.third_coord_idx + 1) % len(self.data[self.coord_names[0]])
@@ -92,6 +138,9 @@ class ThreeDNode(FigureNode):
         return self.third_coord_idx
 
     def _animate_callback(self, animation_coord, data=None):
+        """
+        Creates an AnimationNode and adds it to the dashboard via callback.
+        """
         if self.add_node_callback is None:
             logger.warning("No add_node_callback found for animation callback")
             return
@@ -100,19 +149,105 @@ class ThreeDNode(FigureNode):
         y_range = self.range_stream.y_range
         
         logger.info(f"Starting animation for {animation_coord} in range X:{x_range} Y:{y_range}")
+
+        # Use provided data or default to self.data
         data_to_use = data if data is not None else self.data
 
+        # Use callback if available to generate unique ID
         if self.id_generator_callback:
             node_id = self.id_generator_callback(f"{self.id}_anim")
         else:
             node_id = f"{self.id}_anim"
 
+        # Create Animation Node (High Resolution, PlateCarree)
+        # Using self as parent allows the animation node to be aware of its origin
         anim_node = AnimationNode(node_id, data_to_use, animation_coord, Resolutions.HIGH.value, 
                                   title=self.title, field_name=self.field_name, 
                                   bbox=self.bbox, parent=self, cmap=self.cmap,
                                   x_range=x_range, y_range=y_range)
         
+        # Trigger callback to add node to layout
         self.add_node_callback(anim_node)
+    
+    def _init_transect_mode(self):
+        """Initialize transect drawing mode with PolyDraw stream."""
+        if self.transect_stream is not None:
+            return  # Already initialized
+            
+        # Create an empty Path for drawing transects
+        self.transect_path = gv.Path([], crs=ccrs.PlateCarree()).opts(
+            color='red', 
+            line_width=3,
+            tools=['poly_draw']
+        )
+        
+        # Create PolyDraw stream linked to the path
+        self.transect_stream = streams.PolyDraw(
+            source=self.transect_path,
+            drag=True,
+            num_objects=1,
+            show_vertices=True,
+            vertex_style={'fill_color': 'yellow', 'size': 8}
+        )
+        
+        logger.info(f"Transect mode initialized for node {self.id}")
+    
+    def _toggle_transect_mode(self):
+        """Toggle transect drawing mode on/off."""
+        self.transect_mode = not self.transect_mode
+        
+        if self.transect_mode:
+            self._init_transect_mode()
+            logger.info(f"Transect mode ENABLED for node {self.id}")
+        else:
+            logger.info(f"Transect mode DISABLED for node {self.id}")
+    
+    def _create_transect(self):
+        """Extract transect data and create output node."""
+        if self.transect_stream is None or not self.transect_stream.data:
+            logger.warning("No transect path drawn yet")
+            return
+            
+        xs_list = self.transect_stream.data.get('xs', [])
+        ys_list = self.transect_stream.data.get('ys', [])
+        
+        if not xs_list or len(xs_list[0]) < 2:
+            logger.warning("Transect path must have at least 2 points")
+            return
+            
+        path_xs = xs_list[0]
+        path_ys = ys_list[0]
+        
+        logger.info(f"Creating transect with {len(path_xs)} vertices from 3D data")
+        
+        if self.add_node_callback is None:
+            logger.warning("No add_node_callback found for transect creation")
+            return
+            
+        from model.transect_utils import extract_transect, get_transect_title
+        from model.TwoDNode import TwoDNode
+        
+        # Extract transect data (3D -> 2D: distance × 3rd coord)
+        transect_data = extract_transect(self.data, path_xs, path_ys)
+        
+        # Generate title
+        start_point = (path_xs[0], path_ys[0])
+        end_point = (path_xs[-1], path_ys[-1])
+        title = get_transect_title(self.title, start_point, end_point)
+        
+        # Create TwoDNode for 2D transect output (non-geographic)
+        # Note: This will show distance × third_coord as a heatmap
+        new_node = TwoDNode(
+            id=f"{self.id}_transect",
+            data=transect_data,
+            title=title,
+            field_name=self.field_name,
+            plot_type=PlotType.Transect_2D,
+            parent=self
+        )
+        
+        self.add_node_callback(new_node)
+        logger.info(f"Created transect node: {new_node.id}")
 
     def _make_nav_controls(self, first_cb, prev_cb, next_cb, last_cb, label=None, anim_coord=None):
         btn_style = {'margin': '0px 2px'}
@@ -120,6 +255,8 @@ class ThreeDNode(FigureNode):
         btn_prev = pn.widgets.Button(name="\u2039", icon="angle-left", width=40, height=30, styles=btn_style)
         btn_next = pn.widgets.Button(name="\u203a", icon="angle-right", width=40, height=30, styles=btn_style)
         btn_last = pn.widgets.Button(name="\u00bb", icon="angles-right", width=40, height=30, styles=btn_style)
+        
+        # Animation Button
         btn_anim = pn.widgets.Button(name="Animate", icon="film", button_type="primary", height=30, styles=btn_style)
 
         btn_first.on_click(lambda e: first_cb())
@@ -136,7 +273,9 @@ class ThreeDNode(FigureNode):
         if label:
             row_content.append(pn.pane.Markdown(f"**{label}:**", align='center', margin=(0, 10)))
         
+        # Add navigation and animation buttons to the row
         row_content.extend([btn_first, btn_prev, btn_next, btn_last, btn_anim, pn.layout.HSpacer()])
+        
         return pn.Row(*row_content, align='center')
 
     def get_controls(self):

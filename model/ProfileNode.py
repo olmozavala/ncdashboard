@@ -63,7 +63,8 @@ class ProfileNode(FigureNode):
             title=self.title,
             responsive=True,
             height=350,
-            show_grid=True
+            show_grid=True,
+            shared_axes=False
         )
         return plot
 

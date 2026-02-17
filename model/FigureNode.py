@@ -1,7 +1,5 @@
 # An enum with the types of plots
 import holoviews as hv
-import geoviews as gv
-import cartopy.crs as ccrs
 import panel as pn
 import xarray as xr
 import numpy as np
@@ -11,7 +9,6 @@ from proj_layout.utils import select_colormap
 
 import param
 from abc import ABC, ABCMeta, abstractmethod
-from loguru import logger
 
 class ParameterizedABC(param.parameterized.ParameterizedMetaclass, ABCMeta):
     pass
@@ -20,13 +17,13 @@ class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
     cmap = param.Parameter()
     cnorm = param.Selector(default='linear', objects=['linear', 'log', 'eq_hist'])
     clim = param.Tuple(default=(None, None), length=2)
-
-    # Default tools and active tools for all geo plots
+    
+    # Common tools for geographic plots
     GEO_TOOLS = ['pan', 'wheel_zoom', 'save', 'copy', 'reset', 'hover']
     GEO_ACTIVE_TOOLS = ['pan']
 
-    def __init__(self, id, data, title=None, field_name=None, bbox=None, plot_type=PlotType.TwoD, 
-                 parent=None, cmap=None, **params):
+    def __init__(self, id, data, title=None, field_name=None, bbox=None, plot_type = PlotType.TwoD, 
+                 parent=None,  cmap=None, **params):
         super().__init__(**params)
         self.parent = parent
         self.id = id
@@ -41,8 +38,14 @@ class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
         
         # Background color for relationship tracking
         PASTEL_COLORS = [
-            '#F2F1EF', '#EEF2F5', '#F3F7FB', '#F8F6F2',
-            '#E2EAF4', '#E2F4EA', '#F4E2E2', '#E5E7EB'
+            '#F2F1EF', # Warm gray (Very pale)
+            '#EEF2F5', # Cool gray (Very pale)
+            '#F3F7FB', # Very pale blue
+            '#F8F6F2', # Very pale beige
+            '#E2EAF4', # Muted Blue (Slightly more color)
+            '#E2F4EA', # Muted Green (Slightly more color)
+            '#F4E2E2', # Muted Pink (Slightly more color)
+            '#E5E7EB'  # Muted Slate (Slightly more color)
         ]
         
         if 'background_color' in params:
@@ -57,13 +60,13 @@ class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
         self.marker_stream = hv.streams.Tap(x=None, y=None)
         self.clicked_points = []
 
-
-
         self.long_name = field_name
         self.units = 'no units'
         self.data = data
         try:
+            # If there is a long name, then we use it
             self.long_name = data.long_name.capitalize()
+            # If there are units, then we use them
             self.units = data.units
         except:
             pass
@@ -84,12 +87,21 @@ class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
         else:
             self.cmap = cmap
 
-    # -------- Shared Geo-Plotting Helpers ---------
 
     @staticmethod
-    def _activate_wheel_zoom(plot, element):
-        """Bokeh hook to force wheel_zoom as the active scroll tool.
-        HoloViews' active_tools only handles drag/tap tools, not scroll."""
+    def _lonlat_to_mercator(lon, lat):
+        """Convert lon/lat (PlateCarree) to Web Mercator x/y coordinates."""
+        import math
+        x = lon * 20037508.34 / 180.0
+        try:
+            lat_rad = math.radians(lat)
+            y = math.log(math.tan(math.pi / 4 + lat_rad / 2)) * 20037508.34 / math.pi
+        except ValueError:
+            y = 0 # Handle potential pole issues
+        return x, y
+
+    def _activate_wheel_zoom(self, plot, element):
+        """Bokeh hook to force wheel_zoom as the active scroll tool."""
         from bokeh.models import WheelZoomTool
         for tool in plot.state.toolbar.tools:
             if isinstance(tool, WheelZoomTool):
@@ -97,38 +109,25 @@ class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
                 break
 
     def _build_marker_overlay(self):
-        """Create the click-marker DynamicMap overlay (yellow=previous, red=latest)."""
+        """Build a DynamicMap for the tap marker overlay."""
         def _get_marker(x, y):
-            kdims = [self.coord_names[-1], self.coord_names[-2]]
-            prev_points = self.clicked_points[:-1]
-            latest_point = self.clicked_points[-1:]
-            p_prev = gv.Points(prev_points, kdims=kdims, crs=ccrs.PlateCarree()).opts(
+            # Project clicked points from lon/lat to Web Mercator manually
+            if self.clicked_points:
+                prev_merc = [self._lonlat_to_mercator(px, py) for px, py in self.clicked_points[:-1]]
+                latest_merc = [self._lonlat_to_mercator(px, py) for px, py in self.clicked_points[-1:]]
+            else:
+                prev_merc = []
+                latest_merc = []
+            
+            p_prev = hv.Points(prev_merc, kdims=['x', 'y']).opts(
                 color='yellow', size=12, marker='star', line_color='black', line_width=1
             )
-            p_latest = gv.Points(latest_point, kdims=kdims, crs=ccrs.PlateCarree()).opts(
+            p_latest = hv.Points(latest_merc, kdims=['x', 'y']).opts(
                 color='red', size=15, marker='star', line_color='black', line_width=1
             )
             return p_prev * p_latest
-        return gv.project(
-            hv.DynamicMap(_get_marker, streams=[self.marker_stream]),
-            projection=ccrs.GOOGLE_MERCATOR
-        )
-
-    def _build_geo_overlay(self, rasterized, **extra_opts):
-        """Assemble the final geo overlay: tiles * rasterized * markers,
-        with standard tools and the wheel_zoom hook applied."""
-        tiles = gv.tile_sources.OSM()
-        base = (tiles * rasterized).opts(
-            tools=self.GEO_TOOLS,
-            active_tools=self.GEO_ACTIVE_TOOLS,
-            **extra_opts
-        )
-        marker_dmap = self._build_marker_overlay()
-        return (base * marker_dmap).opts(hooks=[self._activate_wheel_zoom])
-
-
-
-    # -------- Tree Methods ---------
+            
+        return hv.DynamicMap(_get_marker, streams=[self.marker_stream])
 
     def locate(self, id) -> 'FigureNode':
         '''Returns the node with the given id'''
@@ -158,14 +157,16 @@ class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
         pass
 
     def get_stream_source(self):
-        '''Returns the HoloViews object that should be used as source for streams.
-        For geo nodes with a dmap, returns self.dmap. Otherwise falls back to create_figure().'''
-        if hasattr(self, 'dmap'):
-            return self.dmap
+        '''
+        Returns the HoloViews object that should be used as source for streams.
+        By default it returns the same as create_figure().
+        '''
         return self.create_figure()
 
     def get_controls(self):
-        '''Returns a set of controls for the node.'''
+        '''
+        Returns a set of controls for the node.
+        '''
         return None
 
     def add_child(self, node):
@@ -176,14 +177,17 @@ class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
 
     # --- All the getters
     def get_animation_coords(self):
-        '''Returns the coordinates that can be animated'''
+        '''
+        Returns the coordinates that can be animated
+        '''
         animation_coords = []
         if self.plot_type.can_request_animation():
-            times, zaxis, _, _ = get_all_coords(self.data)
+            times, zaxis, _, _= get_all_coords(self.data)
             if times.size > 1:
-                animation_coords.append(times.dims[0].capitalize())
+                animation_coords.append(times.dims[0].capitalize()) # type: ignore
             if zaxis.size > 1:
-                animation_coords.append(zaxis.dims[0].capitalize())
+                animation_coords.append(zaxis.dims[0].capitalize()) # type: ignore
+
         return animation_coords
 
     def get_data(self) -> xr.DataArray:

@@ -48,6 +48,8 @@ hv.plotting.bokeh.ElementPlot.toolbar_logo = None
 hv.config.logo = False
 # Suppress "not evenly sampled" warning
 hv.config.image_rtol = 0.1
+# Disable shared axes so that moving one plot doesn't move others
+hv.plotting.bokeh.ElementPlot.shared_axes = False
 
 class NcDashboard:
     def __init__(self, file_paths, regex, initial_state=None, preloaded_data=None, title=None):
@@ -61,8 +63,8 @@ class NcDashboard:
         logger.info('Initializing new NcDashboard session...')
         
         # --- UI Components ---
-        # FlexBox allows figures to tile side-by-side
-        self.main_area = pn.FlexBox(align_content='start', justify_content='start', sizing_mode='stretch_width', margin=10)
+        # Custom Analysis modal components
+        self.main_area = pn.Column(sizing_mode='stretch_width', margin=10)
         self.sidebar_area = pn.Column(sizing_mode='stretch_width')
         
         # Custom Analysis modal components

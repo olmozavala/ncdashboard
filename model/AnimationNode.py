@@ -112,7 +112,8 @@ class AnimationNode(FigureNode):
             colorbar=True,
             responsive=True,
             aspect='equal',
-            title=title
+            title=title,
+            shared_axes=False
         )
         
         self._cache[index] = result
