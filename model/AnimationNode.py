@@ -106,7 +106,7 @@ class AnimationNode(FigureNode):
         img = gv.Image((lons, lats, frame_data.values), [lon_dim, lat_dim], 
                        vdims=vdims, crs=ccrs.PlateCarree())
         
-        result = rasterize(img, dynamic=False, width=800, pixel_ratio=2).opts(
+        result = rasterize(img, pixel_ratio=2).opts(
             cmap=self.cmap,
             clim=self.clim,
             colorbar=True,
