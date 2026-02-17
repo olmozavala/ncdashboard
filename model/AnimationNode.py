@@ -106,18 +106,8 @@ class AnimationNode(FigureNode):
         img = gv.Image((lons, lats, frame_data.values), [lon_dim, lat_dim], 
                        vdims=vdims, crs=ccrs.PlateCarree())
         
-        result = rasterize(img, pixel_ratio=2).opts(
-            cmap=self.cmap,
-            clim=self.clim,
-            colorbar=True,
-            responsive=True,
-            aspect='equal',
-            title=title,
-            shared_axes=False
-        )
-        
-        self._cache[index] = result
-        return result
+        self._cache[index] = img
+        return img
 
     def _crop_data(self, data, x_range, y_range):
         """Crops the data to the specified ranges with a small buffer."""
@@ -164,7 +154,19 @@ class AnimationNode(FigureNode):
         """Callback for DynamicMap to render a single frame of the animation."""
         index = kwargs.get('value', 0)
         try:
-            return self._get_frame(index)
+            img = self._get_frame(index)
+            
+            # Recalculate title for the specific frame
+            val = self.anim_values[index]
+            if isinstance(val, (float, np.float32, np.float64)):
+                val_str = f"{val:.2f}"
+            else:
+                val_str = str(val)
+                
+            title = f"{self.title or self.id} ({self.cnorm}) - [{index}] {self.anim_coord_name}: {val_str}"
+            
+            # Return styled image. Rasterize is applied at the top level.
+            return img.opts(cmap=self.cmap, clim=self.clim, title=title)
         except Exception as e:
             logger.error(f"Error rendering frame {index}: {e}")
             return hv.Text(0, 0, f"Error rendering frame: {e}")
@@ -172,12 +174,25 @@ class AnimationNode(FigureNode):
     def create_figure(self):
         logger.info(f"Creating dynamic animation for {self.id}...")
         
-        stream = hv.streams.Params(self.player, ['value'])
-        self.dmap = hv.DynamicMap(self._render_frame, streams=[stream])
+        player_stream = hv.streams.Params(self.player, ['value'])
+        param_stream = hv.streams.Params(self, ['cmap', 'cnorm', 'clim'])
+        self.dmap = hv.DynamicMap(self._render_frame, streams=[player_stream, param_stream])
+        
+        # Project to Web Mercator BEFORE rasterizing for best performance/quality
+        projected = gv.project(self.dmap, projection=ccrs.GOOGLE_MERCATOR)
+
+        # Wrap in rasterize at the TOP level for responsiveness
+        # We set dynamic=True so it updates on zoom/pan
+        self.rasterized = rasterize(projected, pixel_ratio=2).opts(
+            colorbar=True,
+            responsive=True,
+            aspect='equal',
+            shared_axes=False
+        )
         
         tiles = gv.tile_sources.OSM()
 
-        plot = (tiles * self.dmap).opts(
+        plot = (tiles * self.rasterized).opts(
             tools=self.GEO_TOOLS,
             active_tools=self.GEO_ACTIVE_TOOLS,
             responsive=True,
