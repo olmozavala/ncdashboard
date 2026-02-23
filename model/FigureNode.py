@@ -18,8 +18,9 @@ class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
     clim = param.Tuple(default=(None, None), length=2)  # Color range (min, max) for the colorbar
     
     # Common tools for geographic plots
-    GEO_TOOLS = ['pan', 'wheel_zoom', 'save', 'copy', 'reset', 'hover']
-    GEO_ACTIVE_TOOLS = ['pan']
+    GEO_TOOLS = ['hover', 'pan', 'wheel_zoom', 'save', 'copy', 'reset']
+    GEO_ACTIVE_TOOLS = ['pan', 'wheel_zoom']
+    DEFAULT_TOOLS = []
 
     def __init__(self, id, data, title=None, field_name=None, bbox=None, plot_type = PlotType.TwoD, 
                  parent=None,  cmap=None, **params):

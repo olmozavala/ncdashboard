@@ -56,6 +56,7 @@ class TwoDNode(FigureNode):
         self.base_plot = (tiles * rasterized).opts(
             tools=self.GEO_TOOLS,
             active_tools=self.GEO_ACTIVE_TOOLS,
+            default_tools=self.DEFAULT_TOOLS,
             responsive=True,
             shared_axes=False
         )
@@ -63,7 +64,7 @@ class TwoDNode(FigureNode):
         # Overlay with click marker
         marker_dmap = self._build_marker_overlay()
         # Apply hook on the FINAL overlay so it isn't lost
-        self.base_plot = (self.base_plot * marker_dmap).opts(hooks=[self._activate_wheel_zoom])
+        self.base_plot = (self.base_plot * marker_dmap)
         
         return self.base_plot
 

@@ -91,9 +91,9 @@ class FourDNode(ThreeDNode):
             colorbar=True,
             responsive=True,
             shared_axes=False,
-            default_tools=[],
-            tools=['hover','pan','wheel_zoom'],
-            active_tools=['pan','wheel_zoom']
+            default_tools=self.DEFAULT_TOOLS,
+            tools=self.GEO_TOOLS,
+            active_tools=self.GEO_ACTIVE_TOOLS
         )
 
         # Overlay with tiles

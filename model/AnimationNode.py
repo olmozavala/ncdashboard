@@ -195,6 +195,7 @@ class AnimationNode(FigureNode):
         plot = (tiles * self.rasterized).opts(
             tools=self.GEO_TOOLS,
             active_tools=self.GEO_ACTIVE_TOOLS,
+            default_tools=self.DEFAULT_TOOLS,
             responsive=True,
             aspect='equal'
         )
@@ -223,7 +224,7 @@ class AnimationNode(FigureNode):
 
         # Add click markers and wheel_zoom hook using shared helpers
         marker_dmap = self._build_marker_overlay()
-        return (plot * marker_dmap).opts(hooks=[self._activate_wheel_zoom])
+        return (plot * marker_dmap)
 
     def get_controls(self):
         """Returns the player widget as navigation controls."""

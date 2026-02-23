@@ -295,12 +295,12 @@ class NcDashboard:
         request_input = pn.widgets.TextAreaInput(
             name="Analysis Request",
             placeholder="e.g., 'Calculate the mean along the time dimension' or 'Convert temperature to Celsius'",
-            height=80,
+            height=70,
             sizing_mode='stretch_width'
         )
         
         # Status display
-        status_pane = pn.pane.Markdown("", sizing_mode='stretch_width')
+        status_pane = pn.pane.Markdown("", sizing_mode='stretch_width', margin=0)
         self.analysis_status = status_pane
         
         # Generate button
@@ -341,15 +341,19 @@ class NcDashboard:
         
         # Create dialog as a Card widget
         dialog_card = pn.Card(
-            pn.pane.Markdown(
-                "Use AI to generate new datasets from natural language. "
-                "The LLM generates Python code to transform your xarray data.",
-                styles={'color': '#666', 'margin-bottom': '10px'}
+            pn.Column(
+                pn.pane.Markdown(
+                    "Use AI to generate new datasets from natural language. "
+                    "The LLM generates Python code to transform your xarray data.",
+                    styles={'color': '#666'},
+                    margin=(5, 10, 0, 10)
+                ),
+                pn.Row(provider_select, source_select, margin=(0, 10, 0, 10)),
+                pn.Column(request_input, margin=(0, 10, 0, 10), sizing_mode='stretch_width'),
+                status_pane,
+                pn.Row(generate_btn, cancel_btn, margin=(0, 10, 10, 10)),
+                sizing_mode='stretch_width'
             ),
-            pn.Row(provider_select, source_select),
-            request_input,
-            status_pane,
-            pn.Row(generate_btn, cancel_btn),
             title="🤖 Custom Analysis",
             sizing_mode='stretch_width',
             max_width=550,

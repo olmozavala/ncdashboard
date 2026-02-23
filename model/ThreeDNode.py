@@ -82,6 +82,7 @@ class ThreeDNode(FigureNode):
         base_plot = (tiles * styled_dmap).opts(
             tools=self.GEO_TOOLS,
             active_tools=self.GEO_ACTIVE_TOOLS,
+            default_tools=self.DEFAULT_TOOLS,
             responsive=True,
             aspect='equal'
         )
@@ -89,7 +90,7 @@ class ThreeDNode(FigureNode):
         # Overlay with click marker
         marker_dmap = self._build_marker_overlay()
         # Apply hook on the FINAL overlay so it isn't lost
-        return (base_plot * marker_dmap).opts(hooks=[self._activate_wheel_zoom])
+        return (base_plot * marker_dmap)
 
     def get_stream_source(self):
         if not hasattr(self, 'dmap'):

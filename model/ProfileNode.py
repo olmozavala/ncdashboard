@@ -61,6 +61,9 @@ class ProfileNode(FigureNode):
 
         plot = (curve * scatter).opts(
             title=self.title,
+            tools=self.GEO_TOOLS,
+            active_tools=self.GEO_ACTIVE_TOOLS,
+            default_tools=self.DEFAULT_TOOLS,
             responsive=True,
             height=350,
             show_grid=True,
