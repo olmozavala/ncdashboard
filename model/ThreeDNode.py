@@ -66,31 +66,23 @@ class ThreeDNode(FigureNode):
         self.dmap = hv.DynamicMap(self._render_plot, 
                                   streams=[self.update_stream, self.range_stream, self.param_stream])
         
-        # Apply options to the dmap (Image) directly since we are not rasterizing
-        # Note: Rasterization was disabled to resolve stability issues with multiple plots
-        styled_dmap = self.dmap.opts(
+        # Wrap in rasterize: it will render the data into an image server-side
+        styled_dmap = rasterize(self.dmap, pixel_ratio=2).opts(
             colorbar=True,
             responsive=True,
-            aspect='equal',
-            framewise=True,
-            shared_axes=False
+            shared_axes=False,
+            default_tools=self.DEFAULT_TOOLS,
+            tools=self.GEO_TOOLS,
+            active_tools=self.GEO_ACTIVE_TOOLS
         )
 
         # Overlay with tiles
         tiles = gv.tile_sources.OSM()
 
-        base_plot = (tiles * styled_dmap).opts(
-            tools=self.GEO_TOOLS,
-            active_tools=self.GEO_ACTIVE_TOOLS,
-            default_tools=self.DEFAULT_TOOLS,
-            responsive=True,
-            aspect='equal'
-        )
-
         # Overlay with click marker
         marker_dmap = self._build_marker_overlay()
         # Apply hook on the FINAL overlay so it isn't lost
-        return (base_plot * marker_dmap)
+        return (tiles * styled_dmap * marker_dmap)
 
     def get_stream_source(self):
         if not hasattr(self, 'dmap'):

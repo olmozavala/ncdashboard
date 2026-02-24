@@ -178,27 +178,19 @@ class AnimationNode(FigureNode):
         param_stream = hv.streams.Params(self, ['cmap', 'clim'])
         self.dmap = hv.DynamicMap(self._render_frame, streams=[player_stream, param_stream])
         
-        # Project to Web Mercator BEFORE rasterizing for best performance/quality
-        projected = gv.project(self.dmap, projection=ccrs.GOOGLE_MERCATOR)
-
-        # Wrap in rasterize at the TOP level for responsiveness
-        # We set dynamic=True so it updates on zoom/pan
-        self.rasterized = rasterize(projected, pixel_ratio=2).opts(
+        # Wrap in rasterize: it will render the data into an image server-side
+        self.rasterized = rasterize(self.dmap, pixel_ratio=2).opts(
             colorbar=True,
             responsive=True,
-            aspect='equal',
-            shared_axes=False
+            shared_axes=False,
+            default_tools=self.DEFAULT_TOOLS,
+            tools=self.GEO_TOOLS,
+            active_tools=self.GEO_ACTIVE_TOOLS
         )
         
         tiles = gv.tile_sources.OSM()
 
-        plot = (tiles * self.rasterized).opts(
-            tools=self.GEO_TOOLS,
-            active_tools=self.GEO_ACTIVE_TOOLS,
-            default_tools=self.DEFAULT_TOOLS,
-            responsive=True,
-            aspect='equal'
-        )
+        plot = (tiles * self.rasterized)
 
         # Set initial viewport if requested
         if self.x_range and self.y_range:

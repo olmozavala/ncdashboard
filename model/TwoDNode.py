@@ -42,29 +42,22 @@ class TwoDNode(FigureNode):
         self.param_stream = hv.streams.Params(self, ['cmap', 'clim'])
         self.dmap = hv.DynamicMap(_get_image, streams=[self.param_stream])
 
-        # Project to Web Mercator BEFORE rasterizing for best performance/quality
-        projected = gv.project(self.dmap, projection=ccrs.GOOGLE_MERCATOR)
-        rasterized = rasterize(projected, pixel_ratio=2).opts(
+        # Wrap in rasterize: it will render the data into an image server-side
+        styled_dmap = rasterize(self.dmap, pixel_ratio=2).opts(
             colorbar=True,
             responsive=True,
             shared_axes=False,
+            default_tools=self.DEFAULT_TOOLS,
+            tools=self.GEO_TOOLS,
+            active_tools=self.GEO_ACTIVE_TOOLS
         )
 
         # Add tiles
         tiles = gv.tile_sources.OSM()
 
-        self.base_plot = (tiles * rasterized).opts(
-            tools=self.GEO_TOOLS,
-            active_tools=self.GEO_ACTIVE_TOOLS,
-            default_tools=self.DEFAULT_TOOLS,
-            responsive=True,
-            shared_axes=False
-        )
-        
         # Overlay with click marker
         marker_dmap = self._build_marker_overlay()
-        # Apply hook on the FINAL overlay so it isn't lost
-        self.base_plot = (self.base_plot * marker_dmap)
+        self.base_plot = (tiles * styled_dmap * marker_dmap)
         
         return self.base_plot
 
