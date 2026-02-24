@@ -44,6 +44,7 @@ class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
         
         # Background color for relationship tracking
         PASTEL_COLORS = [
+            '#FFFFFF', # White
             '#F2F1EF', # Warm gray (Very pale)
             '#EEF2F5', # Cool gray (Very pale)
             '#F3F7FB', # Very pale blue
@@ -60,7 +61,8 @@ class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
             self.background_color = parent.background_color
         else:
             import random
-            self.background_color = random.choice(PASTEL_COLORS)
+            # self.background_color = random.choice(PASTEL_COLORS)
+            self.background_color = '#FFFFFF'
         
         # Stream for click marker
         self.marker_stream = hv.streams.Tap(x=None, y=None)

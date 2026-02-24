@@ -268,10 +268,10 @@ class Dashboard:
         
         container = pn.Column(
             sizing_mode='fixed', # Allow FlexBox to wrap it
-            width=800, # Approx 8/12 width of 1080p screen
-            min_height=480,
+            width=600, # Approx 6/12 width of 1080p screen
+            min_height=400,
             margin=(10, 10),
-            styles={'background': getattr(new_node, 'background_color', '#f0f0f0'), 'border-radius': '5px', 'padding': '10px'}
+            styles={'background': getattr(new_node, 'background_color', '#f0f0f0'), 'border-radius': '5px', 'padding': '10px', 'flex': '0 1 600px'}
         )
         
         # Maximize/Restore Button
@@ -317,14 +317,14 @@ class Dashboard:
                 # Restoring
                 new_styles = container.styles.copy()
                 new_styles.update({
-                    'flex': 'none'
+                    'flex': '0 1 600px'
                 })
                 container.param.update(
                     sizing_mode='fixed',
-                    width=800,
-                    max_width=800,
+                    width=600,
+                    max_width=600,
                     height=None,
-                    min_height=480,
+                    min_height=400,
                     styles=new_styles
                 )
                 

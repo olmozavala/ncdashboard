@@ -64,7 +64,7 @@ class NcDashboard:
         
         # --- UI Components ---
         # Custom Analysis modal components
-        self.main_area = pn.Column(sizing_mode='stretch_width', margin=10)
+        self.main_area = pn.FlexBox(sizing_mode='stretch_width', margin=3)
         self.sidebar_area = pn.Column(sizing_mode='stretch_width')
         
         # Custom Analysis modal components
@@ -121,7 +121,8 @@ class NcDashboard:
                     'border-radius': '15px', 
                     'border': '1px solid #ffcccc',
                     'box-shadow': '0 4px 6px rgba(0,0,0,0.1)',
-                    'color': '#721c24'
+                    'color': '#721c24',
+                    'flex': '1 1 100%'
                 }, sizing_mode='stretch_width'),
                 max_width=800,
                 align='center',
@@ -167,12 +168,19 @@ class NcDashboard:
                     stylesheets=[button_style]
                 )
                 
+                # Create a small label for the raw variable name
+                raw_name_label = pn.pane.HTML(
+                    f"<div style='font-size: 10px; color: #a0aec0; text-align: center; margin-top: -10px; margin-bottom: 5px; font-family: monospace;'>{field}</div>",
+                    sizing_mode='stretch_width'
+                )
+                
                 # Use a factory function to capture the scope correctly
                 def make_plot_callback(f, vt):
                     return lambda e: self.plot_field(f, vt)
                 
                 btn.on_click(make_plot_callback(field, var_type))
-                var_column.append(btn)
+                # Group button and raw name together in a column
+                var_column.append(pn.Column(btn, raw_name_label, sizing_mode='stretch_width'))
             var_widgets.append(var_column)
 
         close_all_btn = pn.widgets.Button(
@@ -360,7 +368,8 @@ class NcDashboard:
             margin=10,
             styles={
                 'background': '#f8f9fa',
-                'border': '2px solid #4CAF50'
+                'border': '2px solid #4CAF50',
+                'flex': '1 1 100%'
             }
         )
         
@@ -485,7 +494,8 @@ class NcDashboard:
                     'padding': '15px', 
                     'border-left': '5px solid #4caf50',
                     'margin': '10px',
-                    'border-radius': '4px'
+                    'border-radius': '4px',
+                    'flex': '1 1 100%'
                 },
                 sizing_mode='stretch_width'
             )
