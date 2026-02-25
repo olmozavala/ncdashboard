@@ -8,7 +8,7 @@ NcDashboard follows a decoupled Model-View-Controller pattern:
 
 - **Model**: Located in `model/`. Orchestrates data loading (via `xarray`) and manages the hierarchical representation of figures (`FigureNode` tree).
 - **View/Controller**:
-  - **Panel**: `ncdashboard_panel.py` (Primary)
+  - **Panel**: `ncdashboard.py` (Primary)
   - **Dash**: `controller.py` (Secondary/Experimental)
 
 ## 2. The Figure Tree (`FigureNode`)
@@ -58,7 +58,7 @@ State logic is encapsulated in `model/state.py` and `model/dashboard.py`.
 
 ## 5. UI Organization (Panel)
 
-- **Sidebar**: Defined in `ncdashboard_panel.py:init_menu`. Action buttons (Close All, Save/Load) are at the top, followed by variable-specific buttons for one-click plotting.
+- **Sidebar**: Defined in `ncdashboard.py:init_menu`. Action buttons (Close All, Save/Load) are at the top, followed by variable-specific buttons for one-click plotting.
 - **Main Area**: Static `FlexBox` or `Column` where figure containers are appended.
 
 ## 6. Common Development Tasks

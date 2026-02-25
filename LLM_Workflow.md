@@ -3,22 +3,23 @@
 This document describes the sequence of events and the code path taken when a user performs a **Custom Analysis** using the LLM-powered feature in NcDashboard.
 
 ## 1. UI Layer: The User Trigger
-- **File**: `ncdashboard_panel.py`
-- **Class**: `NcDashboard`
+- **File**: `ncdashboard.py` / `llm/llm_layout.py`
+- **Class**: `CustomAnalysisUI`
 - **Sequence**:
-    1. User clicks the **"🤖 Custom Analysis"** button in the sidebar.
-    2. `open_custom_analysis_dialog()` creates a Panel `Card` modal.
-    3. User selects a provider (Ollama, OpenAI, Gemini), source data, and enters a request.
-    4. User clicks **"🚀 Generate"**, which triggers the `on_generate` callback.
-    5. `on_generate` calls `self.run_custom_analysis(provider, source_id, request)`.
+    1. User clicks the **"🤖 Custom Analysis"** button in the sidebar (in `ncdashboard.py`).
+    2. `CustomAnalysisUI.open_dialog()` (in `llm/llm_layout.py`) creates a Panel `Card` modal.
+    3. User selects a provider, source data, and enters a request.
+    4. User clicks **"🚀 Generate"**, which triggers the `on_generate` inner callback.
+    5. `on_generate` calls `self.run_analysis(provider, source_id, request)`.
 
-## 2. Orchestration Layer: run_custom_analysis
-- **File**: `ncdashboard_panel.py`
-- **Method**: `NcDashboard.run_custom_analysis`
+## 2. Orchestration Layer: run_analysis
+- **File**: `llm/llm_layout.py`
+- **Method**: `CustomAnalysisUI.run_analysis`
 - **Sequence**:
     1. Locates the source data (either the `root` dataset or a specific node's data).
-    2. Initializes the LLM client using `get_llm_client(provider)` from the `llm` module.
+    2. Initializes the LLM client using `get_llm_client(provider)`.
     3. Calls `run_with_retry(llm_client, data, request, max_attempts=3)`.
+
 
 ## 3. LLM Logic: Generating and Executing Code
 - **File**: `llm/code_executor.py`
@@ -42,7 +43,7 @@ This document describes the sequence of events and the code path taken when a us
     5. Appends the layout to the `main_area` (Panel FlexBox).
 
 ## 5. View Layer: Rendering
-- **File**: `ncdashboard_panel.py` / `model/dashboard.py`
+- **File**: `ncdashboard.py` / `model/dashboard.py`
 - **Sequence**:
     1. Because the `main_area` is a Panel component already displayed in the browser, adding the new figure layout to it causes a reactive update.
     2. The browser renders the new Bokeh/HoloViews plot immediately.
@@ -53,7 +54,7 @@ This document describes the sequence of events and the code path taken when a us
 
 | Component | File | Responsibility |
 | :--- | :--- | :--- |
-| **UI** | `ncdashboard_panel.py` | Dialog management and status updates. |
+| **UI** | `llm/llm_layout.py` | Dialog management and status updates. |
 | **Orchestrator** | `llm/code_executor.py` | Implementation of the `run_with_retry` loop. |
 | **Logic** | `llm/prompt_builder.py` | Metadata extraction and prompt formatting. |
 | **Sandbox** | `llm/code_executor.py` | Secure execution of LLM-generated Python code. |

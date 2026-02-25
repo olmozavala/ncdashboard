@@ -1,10 +1,10 @@
 """NcDashboard Panel Options
 
 Usage:
-  ncdashboard_panel.py  <path> [--regex <regex>] [--state <state_file>] [--port=<port>]
-  ncdashboard_panel.py  --state <state_file> [--port=<port>]
-  ncdashboard_panel.py (-h | --help)
-  ncdashboard_panel.py --version
+  ncdashboard.py  <path> [--regex <regex>] [--state <state_file>] [--port=<port>]
+  ncdashboard.py  --state <state_file> [--port=<port>]
+  ncdashboard.py (-h | --help)
+  ncdashboard.py --version
 
 Options:
   -h --help     Show this screen.
@@ -270,7 +270,7 @@ class NcDashboard:
         logger.info("Custom analysis figure created successfully")
 
 
-if __name__ == "__main__":
+def main():
     args = docopt(__doc__, version='NcDashboard Panel 0.0.2')
     config = load_ncdashboard_config()
     server_cfg = config.get('server', {})
@@ -361,3 +361,8 @@ if __name__ == "__main__":
              websocket_max_message_size=10737418240, # 10GB
              websocket_ping_interval=60,
              websocket_ping_timeout=50)
+
+
+if __name__ == "__main__":
+    main()
+

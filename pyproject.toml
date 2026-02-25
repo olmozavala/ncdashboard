@@ -1,0 +1,48 @@
+[project]
+name = "ncdashboard"
+version = "0.0.2"
+description = "An Open Source project to generate dynamic visualizations of ocean and atmospheric data."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Olmo Zavala-Romero" }
+]
+dependencies = [
+    "panel",
+    "holoviews",
+    "geoviews",
+    "xarray",
+    "netCDF4",
+    "loguru",
+    "docopt",
+    "pyyaml",
+    "pandas",
+    "numpy",
+    "matplotlib",
+    "cartopy",
+    "geopandas",
+    "colorcet",
+    "datashader",
+    "cmocean",
+    "dask",
+    "opencv-python",
+    "scikit-image",
+    "dash",
+    "dash-bootstrap-components",
+    "motuclient",
+]
+
+[project.scripts]
+ncdashboard = "ncdashboard:main"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ipykernel",
+    "ipywidgets",
+    "jupyterlab",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
