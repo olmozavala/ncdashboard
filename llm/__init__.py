@@ -15,6 +15,7 @@ from .llm_client import (
 )
 from .prompt_builder import PromptBuilder
 from .code_executor import CodeExecutor, ExecutionResult, run_with_retry
+from .llm_layout import CustomAnalysisUI
 
 __all__ = [
     "BaseLLMClient",
@@ -27,4 +28,5 @@ __all__ = [
     "CodeExecutor",
     "ExecutionResult",
     "run_with_retry",
+    "CustomAnalysisUI",
 ]

@@ -229,14 +229,29 @@ class ThreeDNode(FigureNode):
         logger.info(f"Created transect node: {new_node.id}")
 
     def _make_nav_controls(self, first_cb, prev_cb, next_cb, last_cb, label=None, anim_coord=None):
-        btn_style = {'margin': '0px 2px'}
-        btn_first = pn.widgets.Button(name="\u00ab", icon="angles-left", width=40, height=30, styles=btn_style)
-        btn_prev = pn.widgets.Button(name="\u2039", icon="angle-left", width=40, height=30, styles=btn_style)
-        btn_next = pn.widgets.Button(name="\u203a", icon="angle-right", width=40, height=30, styles=btn_style)
-        btn_last = pn.widgets.Button(name="\u00bb", icon="angles-right", width=40, height=30, styles=btn_style)
+        # This targets the internal button element directly
+        btn_height = 24
+        button_controls_css = """
+        .bk-btn {
+            padding: 0 0 !important;
+            margin: 0 -3px!important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            line-height: 24px !important;
+            font-size: 14px !important;
+        }
+        """
+
+        btn_width = 24
+        # Navigation buttons
+        btn_first = pn.widgets.Button(name="\u00ab", width=btn_width,button_type="light", height=btn_height, stylesheets=[button_controls_css], align='center')
+        btn_prev = pn.widgets.Button(name="\u2039", width=btn_width, button_type="light", height=btn_height, stylesheets=[button_controls_css], align='center')
+        btn_next = pn.widgets.Button(name="\u203a", width=btn_width, button_type="light", height=btn_height, stylesheets=[button_controls_css], align='center')
+        btn_last = pn.widgets.Button(name="\u00bb", width=btn_width, button_type="light", height=btn_height, stylesheets=[button_controls_css], align='center')
         
         # Animation Button
-        btn_anim = pn.widgets.Button(name="Animate", icon="film", button_type="primary", height=30, styles=btn_style)
+        btn_anim = pn.widgets.Button(name="Animate", button_type="primary", width=70, height=btn_height, stylesheets=[button_controls_css], align='center')
 
         btn_first.on_click(lambda e: first_cb())
         btn_prev.on_click(lambda e: prev_cb())
@@ -250,12 +265,12 @@ class ThreeDNode(FigureNode):
         
         row_content = [pn.layout.HSpacer()]
         if label:
-            row_content.append(pn.pane.Markdown(f"**{label}:**", align='center', margin=(0, 10)))
-        
+            # Removed default margin to prevent vertical offset
+            row_content.append(pn.pane.Markdown(f"**{label}:**", align='center', margin=(0, 10, 0, 0), styles={'line-height': f'{btn_height}px'}))
         # Add navigation and animation buttons to the row
         row_content.extend([btn_first, btn_prev, btn_next, btn_last, btn_anim, pn.layout.HSpacer()])
         
-        return pn.Row(*row_content, align='center')
+        return pn.Row(*row_content, align='center', sizing_mode='stretch_width')
 
     def get_controls(self):
         label = self.coord_names[0].capitalize() if len(self.coord_names) > 0 else "Slice"

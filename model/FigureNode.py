@@ -61,8 +61,8 @@ class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
             self.background_color = parent.background_color
         else:
             import random
-            # self.background_color = random.choice(PASTEL_COLORS)
-            self.background_color = '#FFFFFF'
+            self.background_color = random.choice(PASTEL_COLORS)
+            # self.background_color = '#FFFFFF'
         
         # Stream for click marker
         self.marker_stream = hv.streams.Tap(x=None, y=None)

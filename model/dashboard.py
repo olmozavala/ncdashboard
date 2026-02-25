@@ -264,7 +264,7 @@ class Dashboard:
 
         # Create Panel container
         # We wrap in a Pane to ensure it renders correctly
-        pane = pn.pane.HoloViews(hv_obj, sizing_mode='stretch_both', min_height=400)
+        pane = pn.pane.HoloViews(hv_obj, sizing_mode='stretch_both')
         
         container = pn.Column(
             sizing_mode='fixed', # Allow FlexBox to wrap it
@@ -296,9 +296,9 @@ class Dashboard:
         )
         
         def toggle_size(event):
+            new_styles = container.styles.copy()
             if container.sizing_mode == 'fixed':
                 # Maximizing
-                new_styles = container.styles.copy()
                 new_styles.update({
                     'flex': '1 1 100%',
                 })
@@ -315,7 +315,6 @@ class Dashboard:
                 new_node.maximized = True
             else:
                 # Restoring
-                new_styles = container.styles.copy()
                 new_styles.update({
                     'flex': '0 1 600px'
                 })
