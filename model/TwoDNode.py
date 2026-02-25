@@ -44,6 +44,7 @@ class TwoDNode(FigureNode):
 
         # Wrap in rasterize: it will render the data into an image server-side
         styled_dmap = rasterize(self.dmap, pixel_ratio=2).opts(
+            alpha=0.9,
             colorbar=True,
             responsive=True,
             shared_axes=False,

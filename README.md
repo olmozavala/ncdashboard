@@ -13,8 +13,9 @@
 ## 🚀 Key Technical Contributions
 
 *   **Web-Native Remote Access:** High-performance exploration of large-scale data directly on HPC clusters via a simple web interface.
-*   **Linked Multi-Modal Views:** 1D to 4D visualizations (maps, profiles, time-series) through a recursive node-based tree model.
+*   **Linked Multi-Modal Views:** 1D to 4D visualizations (maps, profiles, time-series) through a recursive node-based tree model. Viewport zoom and position are synchronized across related plots.
 *   **LLM-Driven Analysis:** Natural-language custom fields (e.g., "calculate vorticity") generated as containerized Python code and auto-integrated into the UI.
+*   **Automatic Robust Scaling:** Uses percentile-based scaling (2% - 98%) to ensure visualizations look good immediately, even with extreme outliers.
 
 ## 📊 Comparison at a Glance
 

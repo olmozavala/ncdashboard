@@ -2,7 +2,7 @@
 
 # --- Dashboard Server Settings ---
 server:
-  title: "HYCOM GOMb0.04 Reanalysis"
+  title: "Customized Title"
   host: "0.0.0.0"
   port: 8053 
   prefix: "ncdashboard_osc"
