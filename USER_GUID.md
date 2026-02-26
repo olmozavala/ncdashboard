@@ -35,7 +35,95 @@ Welcome to **NcDashboard**, a powerful, interactive tool for visualizing and ana
 
 ---
 
-## 🏗️ How it Works (High-Level Architecture)
+## Configuration File (`ncdashboard_config.yml`)
+
+NcDashboard is configured through a single YAML file located at the project root: `ncdashboard_config.yml`. The file has two main sections: **LLM** and **Server**.
+
+### LLM Configuration
+
+The `llm` section controls the AI-powered custom analysis feature. You choose a `default_provider` and configure one or more providers under `providers`:
+
+```yaml
+llm:
+  default_provider: "openai"
+  providers:
+    openai:
+      api_key_env: "OPENAI_API_KEY"
+      model: "gpt-4o-mini"
+
+    gemini:
+      api_key_env: "GEMINI_API_KEY"
+      model: "gemini-2.0-flash"
+
+    anthropic:
+      api_key_env: "ANTHROPIC_API_KEY"
+      model: "claude-3-5-sonnet-20241022"
+
+    ollama:
+      model: "qwen2.5-coder:3b"
+      base_url: "http://localhost:11434"
+```
+
+| Field | Description |
+| :--- | :--- |
+| `default_provider` | Which provider to use. Supported values: `openai`, `gemini`, `anthropic`, `ollama`. |
+| `api_key_env` | Name of the environment variable holding the API key (e.g. `OPENAI_API_KEY`). Set the variable in your shell before launching the dashboard. |
+| `model` | The model identifier to use for that provider. |
+| `base_url` | (Ollama only) URL of the local Ollama server. |
+
+For cloud providers, make sure the corresponding environment variable is exported before starting the dashboard:
+
+```bash
+export OPENAI_API_KEY="sk-..."
+```
+
+For a fully local setup with no API keys, use `ollama` as the default provider and ensure the Ollama server is running.
+
+### Dashboard Title
+
+The `title` field under `server` lets you set a custom title for the dashboard header:
+
+```yaml
+server:
+  title: "My Ocean Data Explorer"
+```
+
+If omitted, the default NcDashboard title is used.
+
+### Remote / Proxied Server Settings
+
+If you plan to deploy NcDashboard on a remote machine (e.g. an HPC cluster) or behind a reverse proxy (e.g. Nginx or Apache), configure the remaining `server` options:
+
+```yaml
+server:
+  title: "Customized Title"
+  host: "0.0.0.0"
+  port: 8053
+  prefix: "ncdashboard_osc"
+  use_xheaders: true
+  cdn: true
+  autoreload: true
+  allow_all_origins: true
+  allowed_origins:
+    - "yourdomain.edu"
+    - "yourdomain.edu:443"
+    - "localhost:8053"
+```
+
+| Field | Description |
+| :--- | :--- |
+| `host` | Network interface to bind to. Use `"0.0.0.0"` to accept connections from any address (required for remote access); use `"127.0.0.1"` for local-only. |
+| `port` | TCP port the dashboard listens on. Can be overridden from the command line with `--port`. |
+| `prefix` | URL path prefix (e.g. `"ncdashboard_osc"` makes the app available at `http://host:port/ncdashboard_osc`). Useful when the dashboard runs behind a reverse proxy alongside other services. |
+| `use_xheaders` | Set to `true` when behind a proxy that forwards `X-Forwarded-For` / `X-Forwarded-Proto` headers, so the dashboard sees the real client IP and protocol. |
+| `cdn` | When `true`, static JS/CSS assets are loaded from a public CDN instead of the local server. Reduces bandwidth on the host and can improve load times for remote users. |
+| `autoreload` | Automatically restarts the server when source files change. Useful during development but should be set to `false` in production, as it can cause figure drops on active connections. |
+| `allow_all_origins` | When `true`, accepts WebSocket connections from any origin. Convenient for development or when users access the dashboard through varying hostnames. |
+| `allowed_origins` | An explicit list of allowed WebSocket origins (hostnames with optional ports). These are always allowed in addition to `localhost` and the configured `host:port`. |
+
+---
+
+## How it Works (High-Level Architecture)
 
 NcDashboard is built on a modern Python stack (**Panel**, **HoloViews**, **Xarray**) and follows a decoupled **Model-View-Controller (MVC)** design pattern.
 
