@@ -4,9 +4,9 @@
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue)](https://www.python.org/)
 [![Status](https://img.shields.io/badge/Status-Active-success)](#)
 
-**NcDashboard** bridges the gap between legacy viewers (like NcView) and complex, code-heavy workflows (Xarray/Iris). It enables browser-based exploration of remote HPC datasets with **zero data transfer**, providing a high-performance, reactive interface for atmospheric and oceanographic data.
+**NcDashboard** bridges the gap between legacy viewers (like NcView) and complex, code-heavy workflows (Xarray/Iris). It enables browser-based exploration of remote HPC datasets, providing a high-performance, reactive interface for atmospheric and oceanographic data.
 
-![Alt Text](figs/example.gif)
+![NcDashboard Overview](figs/start.gif)
 
 ---
 
@@ -67,34 +67,29 @@ uv run ncdashboard.py path --port 8055
 ### 1. Dynamic Navigation & Animations
 Bulk load NetCDF files; variables are auto-mapped to 1D–4D visual nodes for one-click plotting. Navigate through time and depth dimensions seamlessly with synchronized sliders.
 
-![Animations Control](figs/animations.gif)
+![Animations Feature](figs/animations.gif)
 
-### 2. High-Performance Interactive Maps
-Pan and zoom across multi-gigabyte grids using **Datashader**. Click any location on a 2D map to instantly generate vertical (depth) or temporal (time-series) profiles for that specific coordinate.
-
-![Start Exploration](figs/start.gif)
-
-### 3. 🤖 AI-Powered Custom Analysis
+### 2. 🤖 AI-Powered Custom Analysis
 Compute derived fields (e.g., *vorticity*, *velocity*, *mean temperature*) via LLM prompts. The AI generates isolated Python code, executes it, and inserts results directly as new interactive figures.
 
-![AI Analysis](figs/llm.gif)
+![AI Features](figs/llm.gif)
 
-### 4. Reproducibility (Portable Workspaces)
+### 3. Reproducibility (Portable Workspaces)
 Save/load your full workspace—including active plots, zoom levels, selected indices, colormaps, and even AI-generated code—to a single JSON file.
 
-![Load State](figs/load_state.gif)
+![State Persistent Feature](figs/load_state.gif)
 
 ---
 
 ## 🏗️ Architecture
 
-Built on a modern Python stack (**Panel, Xarray, Datashader**), the architecture prioritizes performance and scalability.
+Built on a modern Python stack (**Panel, Xarray, Datashader**), the NcDashboard architecture prioritizes performance and scalability by utilizing a recursive tree-based model. 
+
+![System Architecture](figs/NcDashboard.png)
 
 *   **Recursive FigureNodes:** A tree-based model where nodes (1D–4D) inherit data context and handle dynamic rendering updates.
 *   **Lazy Evaluation:** Data is streamed via **Dask/Xarray** and rendered on-demand, allowing large-scale exploration without memory overflow.
 *   **AI Execution Sandbox:** LLM-generated code runs in an isolated environment with restricted imports and restricted memory.
-
-![Architecture Diagram](figs/NcDashboard.png)
 
 ---
 
