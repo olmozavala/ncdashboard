@@ -49,29 +49,55 @@ def select_anim_data(data, third_coord_idx, plot_type) -> xr.DataArray:
     return data_anim
 
 def get_all_coords(data):
-    '''
-    This method returns the coordinates for a given data 
-    '''
-    # Use dims instead of coords.keys() to ensure we match the data axes
-    coords = list(data.dims)
-    lats = xr.DataArray(np.empty((0, 0)))
-    lons = xr.DataArray(np.empty((0, 0)))
-    times = xr.DataArray(np.empty((0, 0)))
-    depth = xr.DataArray(np.empty((0, 0)))
+    """
+    Intelligently identifies time, depth, latitude, and longitude coordinates.
+    Prioritizes coordinates that match the dimensions of the input DataArray.
+    """
+    lats = xr.DataArray(np.empty(0))
+    lons = xr.DataArray(np.empty(0))
+    times = xr.DataArray(np.empty(0))
+    depth = xr.DataArray(np.empty(0))
 
-    if len(coords) == 1: # In this case we assume we have time, z, lat, lon
-        lons = data[coords[0]]
+    data_dims = set(data.dims)
 
-    if len(coords) >= 2: # In this case we assume we have time, z, lat, lon
-        lats = data[coords[-2]]
-        lons = data[coords[-1]]
+    def is_lat(v):
+        name = v.name.lower()
+        return name in ['lat', 'latitude', 'xlat', 'nav_lat', 'yc'] or 'lat' in name
+    
+    def is_lon(v):
+        name = v.name.lower()
+        return name in ['lon', 'longitude', 'xlong', 'nav_lon', 'xc'] or 'lon' in name
 
-    # TODO this should be something smarter, based on the names of the coordinates
-    if len(coords) >= 3: # In this case we assume we have time, z, lat, lon
-        times = data[coords[0]]
+    def is_time(v):
+        name = v.name.lower()
+        return name in ['time', 'xtime', 'times', 't']
+    
+    def is_depth(v):
+        name = v.name.lower()
+        return name in ['depth', 'z', 'lev', 'level', 'bottom_top', 'pressure'] or 'depth' in name
 
-    if len(coords) == 4: # In this case we assume we have time, z, lat, lon
-        depth = data[coords[1]]
+    # 1. Filter coordinates that belong to this variable
+    # We prioritize those whose dimensions are a SUBSET of the variable's dimensions.
+    relevant_coords = [data.coords[c] for c in data.coords if set(data.coords[c].dims).issubset(data_dims)]
+    
+    # 2. Assign by name matching from relevant coords
+    for c in relevant_coords:
+        if is_lat(c) and lats.size == 0: lats = c
+        elif is_lon(c) and lons.size == 0: lons = c
+        elif is_time(c) and times.size == 0: times = c
+        elif is_depth(c) and depth.size == 0: depth = c
+
+    # 3. Fallbacks based on dimension position if not found by name
+    dims = list(data.dims)
+    if lats.size == 0 and len(dims) >= 2:
+        lats = data[dims[-2]]
+    if lons.size == 0 and len(dims) >= 1:
+        lons = data[dims[-1]]
+
+    if times.size == 0 and len(dims) >= 3:
+        times = data[dims[0]]
+    if depth.size == 0 and len(dims) == 4:
+        depth = data[dims[1]]
 
     return times, depth, lats, lons
 

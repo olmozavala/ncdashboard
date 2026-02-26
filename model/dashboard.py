@@ -29,6 +29,27 @@ class Dashboard:
             else:
                 data = xr.open_mfdataset(join(self.path, self.regex), decode_times=False)
 
+        # --- WRF-specific Coordinate Handling ---
+        # Automatically identify and assign latitude/longitude coordinates
+        potential_coords = {}
+        for var_name in data.variables:
+            name_lower = var_name.lower()
+            # Look for latitude/longitude variables
+            is_l = 'lat' in name_lower or 'xlat' in name_lower
+            is_o = 'lon' in name_lower or 'xlong' in name_lower or 'nav_lon' in name_lower
+            
+            if is_l or is_o:
+                c_var = data[var_name]
+                # If it has Time, take the first slice to use as a static geographic coordinate
+                if 'Time' in c_var.dims:
+                    potential_coords[var_name] = c_var.isel(Time=0, drop=True)
+                else:
+                    potential_coords[var_name] = c_var
+        
+        if potential_coords:
+            logger.info(f"Assigning detected coordinates: {list(potential_coords.keys())}")
+            data = data.assign_coords(potential_coords)
+
         self.tree_root = TwoDNode('root', data=data, parent=None)
         
         # Identify field dimensions

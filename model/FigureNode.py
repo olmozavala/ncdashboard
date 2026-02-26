@@ -16,6 +16,7 @@ class ParameterizedABC(param.parameterized.ParameterizedMetaclass, ABCMeta):
 class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
     cmap = param.Parameter()
     clim = param.Tuple(default=(None, None), length=2)  # Color range (min, max) for the colorbar
+    title_val = param.String(default='', allow_None=True)  # Reactive title value
     
     # Common tools for geographic plots
     GEO_TOOLS = ['hover', 'pan', 'wheel_zoom', 'save', 'copy', 'reset']
@@ -79,6 +80,18 @@ class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
         except:
             pass
 
+        # Sanitize: strip curly braces from metadata strings so HoloViews never KeyErrors.
+        # HoloViews inserts `label` as a VALUE into title.format(label=...), so any {key}
+        # inside the label value itself will be interpreted as another format key → KeyError.
+        # Escaping with {{ }} only works in the format template, not in replacement values.
+        # WRF long_names can contain strings like "{'method': 'nearest'}" in metadata.
+        def _sanitize(s):
+            if isinstance(s, str):
+                return s.replace('{', '(').replace('}', ')')
+            return s
+
+        self.long_name = _sanitize(self.long_name)
+        self.units = _sanitize(self.units)
         self.label = f"{self.long_name} ({self.units})"
 
         if title is None:
@@ -95,6 +108,18 @@ class FigureNode(param.Parameterized, metaclass=ParameterizedABC):
         else:
             self.cmap = cmap
 
+    @staticmethod
+    def _safe_title(title: str) -> str:
+        """Strip curly braces from title so HoloViews' title.format() never raises KeyError.
+        
+        HoloViews inserts our title as a VALUE into its own format string, so any {key}
+        inside our title string will be parsed as a new format key → KeyError.
+        WRF long_names / metadata can embed strings like "{'method': 'nearest'}".
+        We replace {} with () since these are display strings and braces have no meaning here.
+        """
+        if not title:
+            return ''
+        return title.replace('{', '(').replace('}', ')')
 
     @staticmethod
     def _lonlat_to_mercator(lon, lat):

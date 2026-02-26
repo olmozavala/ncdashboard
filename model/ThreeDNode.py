@@ -42,18 +42,30 @@ class ThreeDNode(FigureNode):
             # Select the time slice
             data = self.data[self.third_coord_idx, :, :]
 
-        # We assume the last two coordinates are spatial (lat, lon)
-        lats = data.coords[self.coord_names[-2]].values
-        lons = data.coords[self.coord_names[-1]].values
-
-        title = f'{self.title} at {self.coord_names[0].capitalize()} {self.third_coord_idx}'
+        # Use centralized coordinate extraction
+        times_coord, _, lats_coord, lons_coord = get_all_coords(data)
+        
+        # Get the name of the coordinate being sliced (Time/Depth)
+        slice_coord_name = times_coord.name if times_coord.name else self.coord_names[0]
+        title = self._safe_title(f'{self.title} at {slice_coord_name.capitalize()} {self.third_coord_idx}')
+        self.title_val = title
 
         # Use geoviews Image for geographic plotting
         vdims = [hv.Dimension(self.field_name, label=self.label)]
-        # We set a unique group to prevent collision in the Panel/Bokeh rendering pipeline
-        img = gv.Image((lons, lats, data.values), [self.coord_names[-1], self.coord_names[-2]], 
-                       vdims=vdims, crs=ccrs.PlateCarree(), group=f"Group_{self.id}")
-        return img.opts(title=title, cmap=cmap, clim=clim)
+        lat_name = lats_coord.name if lats_coord.name else self.coord_names[-2]
+        lon_name = lons_coord.name if lons_coord.name else self.coord_names[-1]
+
+        # Check if coordinates are multidimensional (Curvilinear grid)
+        if lats_coord.ndim > 1 or lons_coord.ndim > 1:
+            img = gv.QuadMesh((lons_coord, lats_coord, data.values), [lon_name, lat_name], 
+                             vdims=vdims, crs=ccrs.PlateCarree(), group=f"Group_{self.id}")
+        else:
+            lat_vals = lats_coord.values
+            lon_vals = lons_coord.values
+            img = gv.Image((lon_vals, lat_vals, data.values), [lon_name, lat_name], 
+                           vdims=vdims, crs=ccrs.PlateCarree(), group=f"Group_{self.id}")
+
+        return img.opts(cmap=cmap, clim=clim)
 
     def create_figure(self):
         # Create a stream that watches for cmap and clim (color range) changes
@@ -67,8 +79,11 @@ class ThreeDNode(FigureNode):
                                   streams=[self.update_stream, self.range_stream, self.param_stream])
         
         # Wrap in rasterize: it will render the data into an image server-side
-        styled_dmap = rasterize(self.dmap, pixel_ratio=2).opts(
-            alpha=0.9,
+        styled_dmap = rasterize(self.dmap, pixel_ratio=2).apply.opts(
+            alpha=0.8,
+            cmap=self.param.cmap,
+            clim=self.param.clim,
+            title=self.param.title_val,
             colorbar=True,
             responsive=True,
             shared_axes=False,

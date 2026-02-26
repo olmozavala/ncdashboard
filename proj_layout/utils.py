@@ -81,7 +81,7 @@ def select_colormap(field_name):
     cmap = cmocean.cm.thermal # Sensible default
     if np.any([field_name.find(x) != -1 for x in ('ssh', 'srfhgt', 'adt','surf_el')]):
         cmap = cmocean.cm.curl
-    elif np.any([field_name.find(x) != -1 for x in ('temp', 'sst', 'temperature','t2m')]):
+    elif np.any([field_name.find(x) != -1 for x in ('temp', 'sst', 'temperature', 't2m', 't2', 'tsk')]):
         cmap = cmocean.cm.thermal
     elif np.any([field_name.find(x) != -1 for x in ('vorticity', 'vort')]):
         cmap = cmocean.cm.curl
@@ -89,11 +89,20 @@ def select_colormap(field_name):
         cmap = cmocean.cm.haline
     elif np.any([field_name.find(x) != -1 for x in ('chlor-a', 'chlora', 'dchl', 'nchl')]):
         cmap = cmocean.cm.algae
+    elif np.any([field_name.find(x) != -1 for x in ('pres', 'pb', 'psfc', 'p_hyd')]):
+        cmap = cmocean.cm.deep
+    elif np.any([field_name.find(x) != -1 for x in ('rain', 'pcpt', 'pcpc', 'pcpnc')]):
+        # Fallback to 'dense' if 'rain' is not available in oldest cmocean
+        cmap = getattr(cmocean.cm, 'rain', cmocean.cm.dense)
+    elif np.any([field_name.find(x) != -1 for x in ('rh', 'qvapor', 'q2', 'moisture', 'smois')]):
+        cmap = cmocean.cm.haline
+    elif np.any([field_name.find(x) != -1 for x in ('snow', 'ice', 'seaice')]):
+        cmap = cmocean.cm.ice
     elif field_name.find('error') != -1:
         cmap = cmocean.cm.diff
     elif field_name.find('binary') != -1:
         cmap = cmocean.cm.oxy
-    elif np.any([field_name.find(x) != -1 for x in ('u10', 'v10', 'u_', 'v_', 'u-vel.', 'v-vel.','velocity')]):
+    elif np.any([field_name.find(x) != -1 for x in ('u10', 'v10', 'u_', 'v_', 'u-vel.', 'v-vel.','velocity', 'speed', 'w_vel')]):
         cmap = cmocean.cm.speed
     else:
         # If nothing matches, use colorcet rainbow or viridis

@@ -53,28 +53,40 @@ class FourDNode(ThreeDNode):
         super()._animate_callback(animation_coord, data=sliced_data)
 
     def _render_plot(self, counter=0, **kwargs):
-        colormap = self.cmap
-        data = self.data  # Because it is 4D we assume the spatial coordinates are the last 2
-        times, zaxis, lats, lons = get_all_coords(data)
-        lats = lats.values
-        lons = lons.values
-
-        current_slice = data[self.third_coord_idx, self.depth_idx,:,:]
-
         # Retrieve params from kwargs (stream) or self (fallback)
         cmap = kwargs.get('cmap_val', self.cmap)
         clim = kwargs.get('clim_val', self.clim)
 
-        title = f'{self.title} at {self.coord_names[0].capitalize()} {self.third_coord_idx} and {self.coord_names[1].capitalize()} {self.depth_idx}'
+        data = self.data  
+        times_coord, z_coord, lats_coord, lons_coord = get_all_coords(data)
+        
+        current_slice = data[self.third_coord_idx, self.depth_idx,:,:]
+
+        # Build Title Dynamic names
+        t_name = times_coord.name if times_coord.name else self.coord_names[0]
+        z_name = z_coord.name if z_coord.name else self.coord_names[1]
+        
+        title = self._safe_title(f'{self.title} at {t_name.capitalize()} {self.third_coord_idx} and {z_name.capitalize()} {self.depth_idx}')
+        self.title_val = title
         
         # Use geoviews Image for geographic plotting
         vdims = [hv.Dimension(self.field_name, label=self.label)]
-        # We set a unique group to prevent collision in the Panel/Bokeh rendering pipeline
-        group_name = f"Group_{self.id}"
-        img = gv.Image((lons, lats, current_slice.values), [self.coord_names[-1], self.coord_names[-2]], 
-                       vdims=vdims, crs=ccrs.PlateCarree(), group=group_name)
+        lat_name = lats_coord.name if lats_coord.name else self.coord_names[-2]
+        lon_name = lons_coord.name if lons_coord.name else self.coord_names[-1]
 
-        return img.opts(title=title, cmap=cmap, clim=clim)
+        group_name = f"Group_{self.id}"
+        
+        # Check if coordinates are multidimensional (Curvilinear grid)
+        if lats_coord.ndim > 1 or lons_coord.ndim > 1:
+            img = gv.QuadMesh((lons_coord, lats_coord, current_slice.values), [lon_name, lat_name], 
+                             vdims=vdims, crs=ccrs.PlateCarree(), group=group_name)
+        else:
+            lat_vals = lats_coord.values
+            lon_vals = lons_coord.values
+            img = gv.Image((lon_vals, lat_vals, current_slice.values), [lon_name, lat_name], 
+                           vdims=vdims, crs=ccrs.PlateCarree(), group=group_name)
+
+        return img.opts(cmap=cmap, clim=clim)
 
     def create_figure(self):
         # Create a stream that watches for cmap and clim (color range) changes
@@ -87,8 +99,11 @@ class FourDNode(ThreeDNode):
                                   streams=[self.update_stream, self.range_stream, self.param_stream])
 
         # Wrap in rasterize: it will render the data into an image server-side
-        styled_dmap = rasterize(self.dmap, pixel_ratio=2).opts(
-            alpha=0.9,
+        styled_dmap = rasterize(self.dmap, pixel_ratio=2).apply.opts(
+            alpha=0.8,
+            cmap=self.param.cmap,
+            clim=self.param.clim,
+            title=self.param.title_val,
             colorbar=True,
             responsive=True,
             shared_axes=False,

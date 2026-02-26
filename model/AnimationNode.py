@@ -87,12 +87,31 @@ class AnimationNode(FigureNode):
             return self._cache[index]
 
         val = self.anim_values[index]
-        frame_data = self.data.sel({self.anim_coord_name: val}, method='nearest')
         
-        lat_dim = self.coord_names[-2]
-        lon_dim = self.coord_names[-1]
-        lats = frame_data.coords[lat_dim].values
-        lons = frame_data.coords[lon_dim].values
+        # Use isel() for integer/index-based coordinates (e.g. WRF's 'Time' dimension
+        # which has no real coordinate values, just 0,1,2,...).
+        # sel(method='nearest') on such coords causes xarray to embed
+        # {'method': 'nearest'} in the result's metadata, which HoloViews
+        # then tries to use as a format-string key → KeyError.
+        coord_vals = self.data[self.anim_coord_name].values
+        coord_is_index = np.issubdtype(coord_vals.dtype, np.integer)
+        
+        if coord_is_index:
+            frame_data = self.data.isel({self.anim_coord_name: index})
+        else:
+            frame_data = self.data.sel({self.anim_coord_name: val}, method='nearest')
+
+        
+        from model.model_utils import get_all_coords
+        _, _, lats_coord, lons_coord = get_all_coords(frame_data)
+        
+        lat_vals = lats_coord.values
+        lon_vals = lons_coord.values
+        
+        if lat_vals.ndim > 1:
+            lat_vals = lat_vals[:, 0]
+        if lon_vals.ndim > 1:
+            lon_vals = lon_vals[0, :]
         
         # Format value for title
         if isinstance(val, (float, np.float32, np.float64)):
@@ -100,11 +119,20 @@ class AnimationNode(FigureNode):
         else:
             val_str = str(val)
 
-        title = f"{self.title or self.id} - [{index}] {self.anim_coord_name}: {val_str}"
+        title = self._safe_title(f"{self.title or self.id} - [{index}] {self.anim_coord_name}: {val_str}")
         
         vdims = [hv.Dimension(self.field_name, label=self.label)]
-        img = gv.Image((lons, lats, frame_data.values), [lon_dim, lat_dim], 
-                       vdims=vdims, crs=ccrs.PlateCarree())
+        
+        lat_name = lats_coord.name if lats_coord.name else self.coord_names[-2]
+        lon_name = lons_coord.name if lons_coord.name else self.coord_names[-1]
+
+        # Use QuadMesh for curvilinear grids (e.g. WRF), Image otherwise
+        if lat_vals.ndim > 1 or lon_vals.ndim > 1:
+            img = gv.QuadMesh((lons_coord, lats_coord, frame_data.values), [lon_name, lat_name],
+                              vdims=vdims, crs=ccrs.PlateCarree())
+        else:
+            img = gv.Image((lon_vals, lat_vals, frame_data.values), [lon_name, lat_name], 
+                           vdims=vdims, crs=ccrs.PlateCarree())
         
         self._cache[index] = img
         return img
@@ -162,14 +190,18 @@ class AnimationNode(FigureNode):
                 val_str = f"{val:.2f}"
             else:
                 val_str = str(val)
-                
-            title = f"{self.title or self.id} - [{index}] {self.anim_coord_name}: {val_str}"
+            title = self._safe_title(f"{self.title or self.id} - [{index}] {self.anim_coord_name}: {val_str}")
+            self.title_val = title
             
             # Return styled image. Rasterize is applied at the top level.
-            return img.opts(cmap=self.cmap, clim=self.clim, title=title)
+            return img.opts()
         except Exception as e:
             logger.error(f"Error rendering frame {index}: {e}")
-            return hv.Text(0, 0, f"Error rendering frame: {e}")
+            # Return an empty image instead of Text to avoid colorbar errors
+            lat_dim = self.coord_names[-2]
+            lon_dim = self.coord_names[-1]
+            empty_data = np.zeros((2, 2))
+            return gv.Image(([0, 1], [0, 1], empty_data), [lon_dim, lat_dim], crs=ccrs.PlateCarree()).opts(title=f"Error: {e}")
 
     def create_figure(self):
         logger.info(f"Creating dynamic animation for {self.id}...")
@@ -179,7 +211,11 @@ class AnimationNode(FigureNode):
         self.dmap = hv.DynamicMap(self._render_frame, streams=[player_stream, param_stream])
         
         # Wrap in rasterize: it will render the data into an image server-side
-        self.rasterized = rasterize(self.dmap, pixel_ratio=2).opts(
+        self.rasterized = rasterize(self.dmap, pixel_ratio=2).apply.opts(
+            alpha=0.8,
+            cmap=self.param.cmap,
+            clim=self.param.clim,
+            title=self.param.title_val,
             colorbar=True,
             responsive=True,
             shared_axes=False,

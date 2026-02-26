@@ -18,20 +18,35 @@ class TwoDNode(FigureNode):
         shape_str = str(data.shape) if hasattr(data, 'shape') else "Dataset (no shape)"
         logger.info(f"Created TwoDNode: id={id}, shape={shape_str}, coords={self.coord_names}")
         
+        # Initialize title_val
+        self.title_val = self.title
+        
         # Transect mode state
         self.transect_mode = False
         self.transect_path = None
         self.transect_stream = None
 
     def create_figure(self):
-        # Assume 2D data: [lat, lon] or [y, x]
-        lats = self.data.coords[self.coord_names[-2]].values
-        lons = self.data.coords[self.coord_names[-1]].values
-
-        # Use geoviews Image for geographic plotting
+        # Use centralized coordinate extraction
+        from model.model_utils import get_all_coords
+        _, _, lats, lons = get_all_coords(self.data)
+        
         vdims = [hv.Dimension(self.field_name, label=self.label)]
-        self.img = gv.Image((lons, lats, self.data), [self.coord_names[-1], self.coord_names[-2]], 
-                            vdims=vdims, crs=ccrs.PlateCarree())
+        lat_name = lats.name if lats.name else self.coord_names[-2]
+        lon_name = lons.name if lons.name else self.coord_names[-1]
+
+        # Check if coordinates are multidimensional (Curvilinear grid)
+        # Set title='' to prevent HoloViews from formatting '{label} {group}' with WRF metadata
+        if lats.ndim > 1 or lons.ndim > 1:
+            logger.info(f"Using QuadMesh for curvilinear grid in {self.id}")
+            self.img = gv.QuadMesh((lons, lats, self.data), [lon_name, lat_name], 
+                                  vdims=vdims, crs=ccrs.PlateCarree())
+        else:
+            # Standard regular grid - use Image for better performance
+            lat_vals = lats.values
+            lon_vals = lons.values
+            self.img = gv.Image((lon_vals, lat_vals, self.data), [lon_name, lat_name], 
+                                vdims=vdims, crs=ccrs.PlateCarree())
 
         # We wrap in a DynamicMap to allow reactive updates to cmap 
         # without replacing the entire figure object in the UI.
@@ -42,9 +57,14 @@ class TwoDNode(FigureNode):
         self.param_stream = hv.streams.Params(self, ['cmap', 'clim'])
         self.dmap = hv.DynamicMap(_get_image, streams=[self.param_stream])
 
-        # Wrap in rasterize: it will render the data into an image server-side
-        styled_dmap = rasterize(self.dmap, pixel_ratio=2).opts(
-            alpha=0.9,
+        # Wrap in rasterize: it will render the data into an image server-side.
+        # We bind cmap and clim reactively to the styled plot using the .apply.opts pattern
+        # This ensures the colormap and range update when the node parameters change.
+        styled_dmap = rasterize(self.dmap, pixel_ratio=2).apply.opts(
+            alpha=0.8,
+            cmap=self.param.cmap,
+            clim=self.param.clim,
+            title=self.param.title_val,
             colorbar=True,
             responsive=True,
             shared_axes=False,
