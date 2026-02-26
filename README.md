@@ -85,7 +85,7 @@ Save/load your full workspace—including active plots, zoom levels, selected in
 
 Built on a modern Python stack (**Panel, Xarray, Datashader**), the NcDashboard architecture prioritizes performance and scalability by utilizing a recursive tree-based model. 
 
-![System Architecture](figs/NcDashboard.png)
+![System Architecture](figs/NcDashboard.jpg)
 
 *   **Recursive FigureNodes:** A tree-based model where nodes (1D–4D) inherit data context and handle dynamic rendering updates.
 *   **Lazy Evaluation:** Data is streamed via **Dask/Xarray** and rendered on-demand, allowing large-scale exploration without memory overflow.
